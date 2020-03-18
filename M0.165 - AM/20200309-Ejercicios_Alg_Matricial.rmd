@@ -1,0 +1,380 @@
+---
+title: "Ejercicios 1.1 - Estadística descriptiva multivariante"
+author: "Jose Felix Rojas Cabeza"
+date: "2/29/2020"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+require(knitr)
+# include this code chunk as-is to set options
+opts_chunk$set(comment = NA, prompt = TRUE, tidy = FALSE, 
+               fig.width = 7, fig.height = 7,echo = TRUE, 
+               message = FALSE, warning = FALSE, cache=TRUE)
+Sys.setlocale("LC_TIME", "C")
+```
+
+```{r, echo=FALSE}
+if(!(require(MASS))) install.packages("MASS")
+if(!(require(printr))) {
+  install.packages('printr',
+            type = 'source',
+            repos = c('http://yihui.name/xran', 'http://cran.rstudio.com')
+  )
+}
+```
+
+```{r, echo=FALSE}
+htmltools::img(src = knitr::image_uri( "logo_uoc_petit.png"), 
+               alt = 'logo UOC', 
+               style = 'position:absolute; top:0; right:0; padding:10px;')
+htmltools::img(src = knitr::image_uri( "logo_ub_petit.png"), 
+               alt = 'logo UB', 
+               style = 'position:absolute; top:0; left:0; padding:10px;')
+```
+
+# **2. Álgebra Matricial **
+
+## **2.1 Matrices**
+
+## 1. Las siguientes cuestiones se refieren a propiedades elementales del álgebra matricial que debes conocer.
+Indicar si son CIERTAS o FALSAS las siguientes propiedades:
+
+### a) 
+$(A + B)' = A' + B'$ <br />
+Correcto
+
+### b) 
+$AB = BA$  <br />
+Generalmente falso. Si ocurre se dice que las matrices *conmutan*
+
+### c) 
+$|AB| = |A||B|$, donde ambas matrices son cuadradas.  <br />
+Correcto.
+
+### d) 
+$|AB| = |BA|$, donde ambas matrices son cuadradas. <br />
+Correcto.
+
+### e) 
+$tr(A + B) = tr(A) + tr(B)$ <br />
+Correcto.
+
+### f) 
+$tr(AB) = tr(BA)$, ilustrarlo con un ejemplo de dos matrices 2 × 2. <br />
+
+sean $A = \left(\begin{array}{cc}a & b\\c & d\end{array}\right)$
+y $B = \left(\begin{array}{cc}e & f\\g & h\end{array}\right)$
+tenemos que:
+\[ A \times B =
+\left(
+\begin{array}{cc}
+a & b\\
+c & d
+\end{array}
+\right)
+\times
+\left(
+\begin{array}{cc}
+e & f\\
+g & h
+\end{array}
+\right)
+=
+\left(
+\begin{array}{cc}
+a\cdot e+b \cdot g & a\cdot f+ b\cdot h\\
+c \cdot e+ d \cdot g & c \cdot f+d \cdot h
+\end{array}
+\right)
+\] 
+
+Ahora al multiplicar $B^t = \left(\begin{array}{cc}e & g\\f & h\end{array}\right)$ y $A^t =  \left(\begin{array}{cc}a & c\\b & d\end{array}\right)$ observamos:
+\[ B^t \times A^t =
+\left(
+\begin{array}{cc}
+e & g\\
+f & h
+\end{array}
+\right)
+\times
+\left(
+\begin{array}{cc}
+a & c\\
+b & d
+\end{array}
+\right)
+=
+\left(
+\begin{array}{cc}
+e\cdot a+ g \cdot b & e \cdot c+ g \cdot d\\
+f\cdot a+ h \cdot b & f \cdot c+ h \cdot d
+\end{array}
+\right)
+\]
+
+claramente:
+\[
+\left(
+\begin{array}{cc}
+a\cdot e+b \cdot g & a\cdot f+ b\cdot h\\
+c \cdot e+ d \cdot g & c \cdot f+d \cdot h
+\end{array}
+\right)
+=
+\left(
+\begin{array}{cc}
+e\cdot a+ g \cdot b & e \cdot c+ g \cdot d\\
+f\cdot a+ h \cdot b & f \cdot c+ h \cdot d
+\end{array}
+\right)^t
+\]
+
+Por lo que debemos concluir que es Correcto.   
+
+### g) 
+$A'A$ es simétrica. <br />
+Correcto.
+
+### h) 
+$(AB)' = A'B'$
+Falso. Lo correcto sería: $(AB)' = B'A'$ <br />
+
+### i) 
+$(A')^{−1} = (A^{−1})'$, si $A$ tiene inversa. <br />
+Cierto.
+
+### j) 
+Para una matriz $A$ cuadrada, si existe un $x \ne 0$ tal que $Ax = 0$, entonces $|A| = 0$.  <br />
+
+Correcto. Si A es cuadrada y Ax = 0 tiene solución (no nula), entonces es indeterminado. El rango no será máximo y el determinante será 0.
+
+## 2 Comprobar las siguientes propiedades:
+
+### a) Cualquiera que sea el vector $x$, resulta que $x'x ≥ 0$
+
+Si$ x = (x_1,...,x_n) \implies x'x = \sum^n_{i=1} x_i^2$. Considerando que el menor valor posible de un número al cuadrado es cero, se satisface la condición. 
+
+### b) Con la propiedad anterior se puede probar que $A'A$ es siempre definida o semidefinida positiva. 
+
+Una matriz M es semidefinida positva si $\forall y \ne 0 \implies y'My \ge 0 $
+Si $A'A$ es semidefinida positiva, entonces: $y'A'Ay = (Ay)'Ay$. Utilizando la propiedad a), concluiríamos que $(Ay)'Ay \ge 0$
+
+Ejemplo:
+
+```{r}
+set.seed(123) # semilla colocada para reproducibilidad
+#A <- matrix (c(1,0,0,0,1,0,0,0,1), ncol=3, byrow=T)
+random <- rnorm(9, 0, 2)
+r_r <- round(random, 0)
+r1 <- round(rnorm(3, 0, 1), 0)
+r2 <- round(rnorm(3, 0, 2), 0)
+r3 <- round(rnorm(3, 0, 3), 0)
+A <- matrix (c(r_r), nrow=3, ncol=3, byrow=T)
+
+AtA <- t(A) %*% A
+
+y_1 <- r1
+y_2 <- r2
+y_3 <- r3
+
+t(y_1) %*% AtA %*% y_1 >= 0 
+t(y_2) %*% AtA %*% y_2 >= 0 
+t(y_3) %*% AtA %*% y_3 >= 0
+```
+
+### c) $A'A$ siempre es simétrica. Poner algunos ejemplos. 
+
+$(A'A)' = A'(A')' = A'A$. Es simétrica.
+
+```{r}
+t(t(A) %*% A) == t(A) %*% A
+```
+
+
+
+### d) (**) Si A'A es semidefinida positova y no definida positva, entonces existe $x \ne 0$ tal que $Ax=0$. Poner algún ejemplo. <br />
+
+No resuelto para la fecha de entrega.
+
+## 3. Dadas las matrices:
+\[ A= 
+\left(
+\begin{array}{cc}
+2 & 0 & 1\\
+3 & 0 & 0\\
+5 & 1 & 1\\
+\end{array}
+\right)
+\quad
+\quad
+B=
+\left(
+\begin{array}{cc}
+1 & 0 & 1\\
+1 & 2 & 1\\
+1 & 1 & 0\\
+\end{array}
+\right)
+\]
+
+Calcular: A + B; A − B; AB; BA; A'. <br />
+Hacerlo manualmente y con un programa como R
+
+Manualmente:
+\[ A\pm B= 
+\left(
+\begin{array}{cc}
+2\pm 1 & 0\pm 0 & 1\pm 1\\
+3\pm 1 & 0\pm 2 & 0\pm 1\\
+5\pm 1 & 1\pm 1 & 1\pm 0\\
+\end{array}
+\right)
+\quad
+A+B =
+\left(
+\begin{array}{cc}
+3 & 0 & 2\\
+4 & 2 & 1\\
+6 & 2 & 1\\
+\end{array}
+\right)
+\quad
+A-B =
+\left(
+\begin{array}{cc}
+1 & 0 & 0\\
+2 & -2 & -1\\
+4 & 0 & 1\\
+\end{array}
+\right)
+\]
+
+\[ A\times B =
+\left(
+\begin{array}{cc}
+2\cdot 1+0\cdot1+1\cdot1 & 2\cdot0+0\cdot2+1\cdot1 & 2\cdot1+0\cdot1+1\cdot0\\
+3\cdot 1+0\cdot1+0\cdot1 & 3\cdot0+0\cdot2+0\cdot1 & 3\cdot1+0\cdot1+0\cdot0\\
+5\cdot 1+1\cdot1+1\cdot1 & 5\cdot0+1\cdot2+1\cdot1 & 5\cdot1+1\cdot1+1\cdot0\\
+\end{array}
+\right)
+=
+\left(
+\begin{array}{cc}
+3 & 1 & 2\\
+3 & 0 & 3\\
+7 & 3 & 6\\
+\end{array}
+\right)
+\]
+
+\[
+B \times A = 
+\left(
+\begin{array}{cc}
+7 & 1 & 2\\
+13 & 1 & 2 \\
+5 & 0 & 1 \\
+\end{array}
+\right)
+\quad
+\quad
+\quad
+A' = 
+\left(
+\begin{array}{cc}
+2 & 3 & 5\\
+0 & 0 & 1\\
+1 & 0 & 1\\
+\end{array}
+\right)
+\]
+
+Con R:
+```{r}
+A <- matrix(c(2,0,1,3,0,0,5,1,1), nrow=3, ncol=3, byrow=T)
+B <- matrix(c(1,0,1,1,2,1,1,1,0), nrow=3, ncol=3, byrow=T)
+A+B
+A-B
+A %*% B
+B %*% A
+t(A)
+```
+
+### 4. Demostrar que $A^2 − A − 2I = 0$, siendo: $A=\left(\begin{array}{cc}0 & 1 & 1\\1 & 0 & 1\\1 & 1 & 0\\\end{array}\right)$
+
+```{r}
+A <- matrix(c(0,1,1,1,0,1,1,1,0), ncol=3, nrow=3, byrow=T)
+I <- matrix(c(1,0,0,0,1,0,0,0,1), ncol=3, nrow=3, byrow=T)
+A %*% A - A - 2*I
+```
+
+### 5. Hallar la inversa de $A=\left(\begin{array}{cc}1 & -1 & 0\\0 & 1 & 0\\2 & 0 & 1\\\end{array}\right)$ 
+
+```{r}
+A <- matrix(c(1,-1,0,0,1,0,2,0,1), ncol=3, nrow=3, byrow=T)
+solve(A) # Calcula la Inversa
+solve(A) %*% A # Demuestra que solve(A) es la inversa
+```
+
+### 6. Resolver en forma matricial el sistema:
+\[\Bigg \{ \begin{array}{ccc} x & y & z & = & 6 \\ x & 2y & 5z & = & 12 \\ x & 4y & 25z & = & 36 \end{array}\]
+
+```{r}
+A <- matrix(c(1,1,1,1,2,5,1,4,25), ncol=3, nrow=3, byrow=T)
+b <- c(6,12,36)
+A_inv <- solve(A)
+
+A_inv %*% b #Da solución al sistema de ecuaciones
+```
+
+# **2.2 Diagonalización y valores singulares**
+
+### 1. Sean
+\[A = \left(\begin{array}{rr}3 & -2\\-3 & 2\\\end{array}\right),\quad u=\left(\begin{array}{rr}1 \\-1\\\end{array}\right),\quad v=\left(\begin{array}{rr}2 \\3\\\end{array}\right).\]
+
+a) Probar que $u$ es un vector propio de $A$. ¿Cual es su valor propio correspondiente? <br />
+
+```{r}
+A <- matrix(c(3,-2,-3,2), ncol=2,nrow=2,byrow=T)
+u <- c(-1,1)
+v <- c(2,3)
+
+A %*% u
+
+5*u
+```
+
+tenemos que $A\cdot u = \lambda u$ para $\lambda =5$
+
+b) Comprobar que $\lambda u$, con $\lambda$ un escalar no nulo, también es vector propio de $A$.<br />
+
+sea $b$ un vector tal que $b = \lambda \cdot u$
+
+```{r}
+set.seed(123)
+lambda <- round(rnorm(1, 10, 10),0)
+(b <- lambda*u)
+A %*% b
+```
+
+se verifica que $5*\left(\begin{array}{rr}4 \\-4\end{array}\right)$ corresponde a $A\times B$
+```{r}
+5 * c(4,-4)
+```
+c) Probar que $v$ es un vector propio de A. ¿Cual es su valor propio correspondiente?<br />
+
+se debería verificar que $A \cdot v = \lambda \cdot v$
+```{r}
+A %*% v == 0 * v
+```
+
+$\lambda = 0$ cumple con las condiciones. 
+
+d) ¿$u + v$ es un vector propio de A?<br />
+
+Para que se cumpla, los autovalores deberían ser los mismos. En este caso son distintos, y no se cumple.
+
+$A\cdot(u+v) = A\cdot u+A\cdot v = \lambda_u\cdot u+\lambda_v\cdot v$. <br /> $(\lambda_u+\lambda_v)\cdot(u+v)$ Es diferente 

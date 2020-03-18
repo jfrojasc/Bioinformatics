@@ -1,0 +1,421 @@
+---
+title: "Ejercicios 1 - Estadística descriptiva multivariante"
+author: "Jose Felix Rojas Cabeza"
+date: "2/29/2020"
+output:
+  html_document: default
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+require(knitr)
+# include this code chunk as-is to set options
+opts_chunk$set(comment = NA, prompt = TRUE, tidy = FALSE, 
+               fig.width = 7, fig.height = 7,echo = TRUE, 
+               message = FALSE, warning = FALSE, cache=TRUE)
+Sys.setlocale("LC_TIME", "C")
+```
+
+```{r, echo=FALSE}
+if(!(require(MASS))) install.packages("MASS")
+if(!(require(gridExtra))) install.packages("gridExtra")
+if(!(require(ggExtra))) install.packages("ggExtra")
+if(!(require(psych))) install.packages("psych")
+if(!(require(printr))) {
+  install.packages('printr',
+            type = 'source',
+            repos = c('http://yihui.name/xran', 'http://cran.rstudio.com')
+  )
+}
+```
+
+```{r, echo=FALSE}
+htmltools::img(src = knitr::image_uri( "logo_uoc_petit.png"), 
+               alt = 'logo UOC', 
+               style = 'position:absolute; top:0; right:0; padding:10px;')
+htmltools::img(src = knitr::image_uri( "logo_ub_petit.png"), 
+               alt = 'logo UB', 
+               style = 'position:absolute; top:0; left:0; padding:10px;')
+```
+
+# **1. Estadística Descriptiva**
+## 1. Para la base de datos `crabs` del paquete `MASS` de **R**:
+Resumen gráfico de la información en `crabs`
+```{r, fig.height=6, fig.width=7, echo=FALSE}
+require(MASS)
+par(mfrow = c(2,4))
+for (i in 1:dim(crabs)[2]) {
+   if (class(crabs[,i]) == "factor") 
+     { try(plot(crabs[,i],main = colnames(crabs)[i]),TRUE)
+   } else
+     { try(boxplot(crabs[,i],main = colnames(crabs)[i]),TRUE)
+   }
+ }
+```
+
+### a) Estudiar la base de datos con la ayuda y las funciones `str()` y `summary()`.
+
+```{r}
+require(MASS)
+str(crabs)
+summary(crabs)
+```
+
+### b) Calcular estadísticos descriptivos como la media, la mediana, la varianza, etc. de las variables numéricas, tanto para todos los datos, como para las especies y los sexos por separado.
+
+Se podría hacer una por una, pero tiene más sentido hacer uso de `apply` para obtener los resultados deseados. 
+
+```{r}
+require(MASS)
+attach(crabs)
+# data set de variables numéricas
+crabs_num <- crabs[,4:8]
+str(crabs_num)
+
+# X, en la posición 1, corresponde al dataset: crabs_num.
+# MARGIN, en la posición 2, al colocar 2, indico que quiero utilizar las columnas.
+# FUN indica la función específica a aplicar, en este caso tapply. 
+# INDEX indica cómo vamos a separar los datos, en este caso es por especie.
+# finalmente indicamos que queremos la media, desv. est., varianza y mediana, en ese orden. 
+apply(crabs_num, 2, tapply, sp, mean) 
+apply(crabs_num, 2, tapply, sp, sd)
+apply(crabs_num, 2, tapply, sp, var)
+apply(crabs_num, 2, tapply, sp, median)
+
+# ahora separamos por sexo:
+apply(crabs_num, 2, tapply, sex, mean)
+apply(crabs_num, 2, tapply, sex, sd)
+apply(crabs_num, 2, tapply, sex, var)
+apply(crabs_num, 2, tapply, sex, median)
+detach(crabs)
+```
+
+### c) Hallar los cinco números descriptivos de cada variable numérica. Utilizar la función `fivenum()`.
+
+En este caso también podemos hacer uso de la misma función:
+```{r}
+(apply(crabs_num, 2, fivenum))
+```
+
+### d) Hallar las matrices de varianzas y covarianzas de las variables numéricas según especie y sexo.
+
+```{r}
+attach(crabs)
+# Considerando todos los casos
+round(cov(crabs_num), 2)
+
+# Sex == "F"
+round(cov(crabs_num[sex=="F",]), 2)
+
+# sex == "M"
+round(cov(crabs_num[sex=="M",]), 2)
+
+# sp == "B"
+round(cov(crabs_num[sp=="B",]), 2)
+
+# sp == "o"
+round(cov(crabs_num[sp=="O",]), 2)
+detach(crabs)
+```
+
+### e) Comparar cada especie con medidas globales de variabilidad: varianza total $tr(S)$, varianza media $tr(S)/p$, varianza generalizada $|S|$ y varianza efectiva $|S|^{1/p}$.
+
+```{r}
+attach(crabs)
+# matriz de covarianza
+C <- cov(crabs_num)
+E <- eigen(C)
+
+sum(diag(C))
+
+sum(E$values)
+
+# Varianza media para todos los datos
+sum(diag(C))/5 
+
+# Varianza total para sp=="B"
+sum(diag(cov(crabs_num[crabs$sp=="B",])))
+
+# Varianza total para sp=="O"
+sum(diag(cov(crabs_num[crabs$sp=="O",])))
+
+# Varianza media para sp =="B"
+sum(diag(cov(crabs_num[crabs$sp=="B",])))/length(names(crabs))
+
+# Varianza media para sp =="O"
+sum(diag(cov(crabs_num[crabs$sp=="O",])))/length(names(crabs))
+
+# Varianza generalizada para todos los datos
+det(C)
+
+# Varianza efectiva para todos los datos
+det(C)^(1/5)
+
+# Varianza efectiva para sp=="B"
+det(cov(crabs_num[crabs$sp=="B",]))^(1/length(names(crabs)))
+
+# Varianza efectiva para sp=="O"
+det(cov(crabs_num[crabs$sp=="O",]))^(1/length(names(crabs)))
+detach(crabs)
+```
+
+## 2. Para la base de datos huswif del libro de Everitt(2005)[2](https://www.york.ac.uk/depts/maths/data/everitt/welcome.htm).
+
+### a) Cargar los datos con la instrucción:
+`huswif <- source("chap1huswif.dat")$value`
+y estudiar la base de datos con las funciones `str()` y `summary()`.
+
+```{r}
+file_dir <- "C:/Users/josef/Dropbox/Documents/Personal/UOC/3er Cuatrimestre/M0.165-AM/Ejercicios/chap1huswif.dat"
+
+(huswif <- source(file_dir)$value)
+```
+
+Resumen gráfico de la información en `huswif`
+```{r, fig.height=4, fig.width=7, echo=FALSE}
+par(mfrow = c(1,5))
+for (i in 1:dim(huswif)[2]) {
+   if (class(huswif[,i]) == "factor") 
+     { try(plot(huswif[,i],main = colnames(huswif)[i]),TRUE)
+   } else
+     { try(boxplot(huswif[,i],main = colnames(huswif)[i]),TRUE)
+   }
+ }
+```
+
+```{r}
+str(huswif)
+summary(huswif)
+```
+
+### b) Calcular estadísticos descriptivos como la media, la mediana, la varianza, etc. de todas las variables.
+
+```{r}
+attach(huswif)
+
+#mean
+apply(huswif, 2, mean) 
+
+#sd
+apply(huswif, 2, sd)
+
+#var
+apply(huswif, 2, var)
+
+#median
+apply(huswif, 2, median)
+
+detach(huswif)
+```
+
+### c) Hallar los cinco números descriptivos de cada variable numérica. Utilizar la función fivenum().
+```{r}
+(apply(huswif, 2, fivenum))
+```
+
+### d) Hallar la matriz de varianzas-covarianzas y la matriz de correlaciones.
+
+```{r}
+cov(huswif)
+(C <- cor(huswif))
+require(corrplot)
+corrplot(C, method="pie")
+```
+
+### e) Hallar las medidas globales de variabilidad: varianza total $tr(S)$, varianza media $tr(S)/p$, varianza generalizada $|S|$ y varianza efectiva $|S|^{1/p}$.
+
+```{r}
+attach(huswif)
+# matriz de covarianza
+C <- cov(huswif)
+E <- eigen(C)
+
+sum(diag(C))
+
+sum(E$values)
+
+# Varianza media para todos los datos
+sum(diag(C))/length(names(huswif))
+
+# Varianza generalizada para todos los datos
+det(C)
+
+# Varianza efectiva para todos los datos
+det(C)^(1/length(names(huswif)))
+detach(huswif)
+```
+
+## 3. Para la base de datos airpoll del libro de Everitt(2005)
+### a) Cargar los datos con la instrucción: 
+`airpoll <- source("chap2airpoll.dat")$value`
+y estudiar la base de datos con las funciones `str()` y `summary()`.<br />
+
+```{r}
+airpoll_filedir <- "C:/Users/josef/Dropbox/Documents/Personal/UOC/3er Cuatrimestre/M0.165-AM/Ejercicios/chap2airpoll.dat"
+
+airpoll <- source(airpoll_filedir)$value
+```
+
+Resumen gráfico de la información en `airpoll`
+```{r, fig.height=6, fig.width=7, echo=FALSE}
+par(mfrow = c(2,4))
+for (i in 1:dim(airpoll)[2]) {
+   if (class(airpoll[,i]) == "factor") 
+     { try(plot(airpoll[,i],main = colnames(airpoll)[i]),TRUE)
+   } else
+     { try(boxplot(airpoll[,i],main = colnames(airpoll)[i]),TRUE)
+   }
+ }
+```
+
+```{r}
+str(airpoll)
+summary(airpoll)
+```
+### b) Calcular estadísticos descriptivos como la media, la mediana, la varianza, etc. de todas las variables.<br />
+```{R}
+attach(airpoll)
+
+#mean
+apply(airpoll, 2, mean) 
+
+#sd
+apply(airpoll, 2, sd)
+
+#var
+apply(airpoll, 2, var)
+
+#median
+apply(airpoll, 2, median)
+
+detach(airpoll)
+```
+
+### c) Hallar los cinco números descriptivos de cada variable numérica. Utilizar la función `fivenum()`.<br />
+
+```{R}
+attach(airpoll)
+(apply(airpoll, 2, fivenum))
+detach(airpoll)
+```
+
+### d) Hallar la matriz de varianzas-covarianzas y la matriz de correlaciones.<br />
+
+```{r}
+attach(airpoll)
+cov(airpoll)
+(C <- cor(airpoll))
+require(corrplot)
+corrplot(C, method="pie")
+detach(airpoll)
+```
+
+### e) Hallar las medidas globales de variabilidad: varianza total $tr(S)$, varianza media $tr(S)/p$, varianza generalizada $|S|$ y varianza efectiva $|S|^{1/p}$.<br />
+
+```{r}
+attach(airpoll)
+# matriz de covarianza
+C <- cov(airpoll)
+E <- eigen(C)
+
+# varianza total para todos los datos 
+sum(diag(C))
+sum(E$values)
+
+# Varianza media para todos los datos
+sum(diag(C))/length(names(airpoll))
+
+# Varianza generalizada para todos los datos
+det(C)
+
+# Varianza efectiva para todos los datos
+det(C)^(1/length(names(airpoll)))
+detach(airpoll)
+```
+
+# **2. Gráficos**
+
+## 9. Con las variables `CL` y `CW` de la base de datos `crabs` del paquete `MASS` de R:
+
+### a) Crear el diagrama de dispersión de las dos variables y sus histogramas marginales.
+```{r, fig.width=8, fig.height=8}
+attach(crabs)
+require(psych)
+scatterHist(crabs$CL,crabs$CW, main="CL vs CW", xlab="CL", ylab="CW")
+detach(crabs)
+# nota: no me puedo explicar de dónde sale el gráfico en 
+# blanco utilizando el código de abajo
+#library(ggplot2)
+#library(ggExtra)
+#df <- data.frame(x=crabs$CL, y=crabs$CW)
+#p <- ggplot(df, aes(x, y)) + geom_point() + theme_classic()+ #labs(title="CL vs CW",x="CL", y="CW")
+#ggExtra::ggMarginal(p, type ="histogram")
+```
+
+
+
+### b) Crear el diagrama de dispersión de las dos variables y sus diagramas de caja marginales.
+
+```{r, fig.width=8, fig.height=8}
+attach(crabs)
+library(ggplot2)
+library(ggExtra)
+df <- data.frame(x=crabs$CL, y=crabs$CW)
+p <- ggplot(df, aes(x, y)) + geom_point() + theme_classic() + labs(title="CL vs CW",x="CL", y="CW")
+ggExtra::ggMarginal(p, type = "boxplot")
+detach(crabs)
+# Nota: no me puedo explicar de dónde sale el gráfico  
+# en blanco utilizando el código de abajo
+```
+## 10. Con la base de datos crabs del paquete MASS de R, realizar los siguientes diagramas de caja múltiples:
+### a) Para comparar las variables según especie.
+```{r}
+attach(crabs)
+
+B <- crabs_num[crabs$sp=="B",]
+O <- crabs_num[crabs$sp=="O",]
+
+boxplot(B$FL, O$FL, B$RW, O$RW, B$CL, O$CL, B$CW, O$CW, B$BD, O$BD, main="Comparación de variables numéricas por especie", xlab="B-FL  O-FL  B-RW  O-RW  B-CL  O-CL  B-CW  O-CW  B-BD   O-BD \n\n Especie & Categoría", ylab="Valor", col = c("orange","brown"))
+
+detach(crabs)
+```
+
+### b) Para comparar las variables según sexo.
+```{r}
+attach(crabs)
+f <- crabs_num[crabs$sex=="F",]
+m <- crabs_num[crabs$sex=="M",]
+
+boxplot(f$FL, m$FL, f$RW, m$RW, f$CL, m$CL, f$CW, m$CW, f$BD, m$BD, main="Comparación de variables numéricas por especie", xlab="F-FL   M-FL   F-RW   M-RW   F-CL   M-CL   F-CW   M-CW   F-BD    M-BD \n\n Especie & Categoría", ylab="Valor", col = c("red","blue"))
+detach(crabs)
+```
+
+### c) Para comparar las variables según especie y sexo.
+```{r, fig.height=16, fig.width=16}
+attach(crabs)
+BF_nnum <- subset(crabs_num, crabs$sex=="F" & crabs$sp=="B")
+
+
+BM_nnum <- subset(crabs_num, crabs$sex=="M" & crabs$sp=="B")
+
+
+OF_nnum <- subset(crabs_num, crabs$sex=="F" & crabs$sp=="O")
+
+
+OM_nnum <- subset(crabs_num, crabs$sex=="M" & crabs$sp=="O")
+
+BF <- BF_nnum[3:8,]
+BM <- BM_nnum[3:8,]
+OF <- OF_nnum[3:8,]
+OM <- OF_nnum[3:8,]
+
+boxplot(BF$FL, BM$FL, OF$FL, OF$FL, BF$RW, BM$RW, OF$RW, OF$RW, BF$CL, BM$CL, OF$CL, OF$CL, BF$CW, BM$CW, OF$CW, OF$CW,BF$BD, BM$BD, OF$BD, OF$BD, main="Comparación de variables numéricas por especie y sexo", xlab="\n\n Especie, Sexo & Categoría", ylab="Valor", col = c("blue", "red", "purple", "yellow", "pink", "green", "orange", "mediumpurple", "lightblue", "brown", "cyan", "magenta", "grey","maroon", "violet","purple", "gold","snow", "bisque", "deepskyblue"))
+
+legend(0.1,33,lty=1,c("BF$FL", "BM$FL", "OF$FL", "OF$FL", "BF$RW", "BM$RW", "OF$RW", "OF$RW", "BF$CL", "BM$CL", "OF$CL", "OF$CL", "BF$CW", "BM$CW", "OF$CW", "OF$CW", "BF$BD", "BM$BD", "OF$BD", "OF$BD"),col=c("blue", "red", "purple", "yellow", "pink", "green", "orange", "mediumpurple", "lightblue", "brown", "cyan", "magenta", "grey","maroon", "violet","purple", "gold","snow", "bisque", "deepskyblue"),title="Leyenda",cex=1.5)
+
+detach(crabs)
+```
+
+```{r}
+
+```

@@ -1,0 +1,326 @@
+---
+title: "20200313-k-NN_algorithm"
+author: "Jose Felix Rojas Cabeza"
+output:
+  html_document:
+    code_folding: show
+    theme: lumen
+    toc: yes
+    toc_float: yes
+  word_document:
+    toc: yes
+  pdf_document:
+    toc: yes
+params:
+  data: "C:/Users/josef/Dropbox/Documents/Personal/UOC/3er Cuatrimestre/M0.163-ML/Unidad 2/wisc_bc_data.csv"
+  date: !r Sys.Date()
+bibliography: referencias.bib
+---
+
+```{r setup, include=FALSE}
+require(knitr)
+# include this code chunk as-is to set options
+opts_chunk$set(comment = NA, prompt = TRUE, tidy = FALSE, 
+               fig.width = 7, fig.height = 7,echo = TRUE,
+               fig.align='center',
+               message = FALSE, warning = FALSE, cache=TRUE)
+Sys.setlocale("LC_TIME", "C")
+```
+
+```{r, echo=FALSE}
+htmltools::img(src = knitr::image_uri( "logo_uoc_petit.png"), 
+               alt = 'logo UOC', 
+               style = 'position:absolute; top:0; right:0; padding:10px;')
+```
+
+# **Algoritmos k-NN**
+
+## 1. Recolectando los datos
+
+Se crea el data frame wbcd para los datos sobre cáncer de seno de Wisconsin a partir del archivo en `r params$data`. Nótese que la eliminación de la variable id se realiza debido a una recomendación de [@lantz2013machine], argumentando que no hacer esta eliminación causa sobreajuste:
+```{r}
+# import the CSV file
+wbcd <- read.csv(params$data, stringsAsFactors = FALSE)
+
+# examen de la estructura del data set wbcd de 5 variables
+head(wbcd[,1:5], 2)
+
+# eliminación de la columna id y guardado en el mismo data set
+wbcd <- wbcd[-1]
+```
+
+## 2. Explorando y preparando los pasos
+
+```{R}
+str(wbcd)
+```
+
+A continuación, se colocan las dimensiones del dataset sin id:
+```{r echo=FALSE}
+dimensiones <- dim(wbcd)
+num_entrenamiento <- round((dimensiones[1]*0.8242),0)
+num_prueba <- dimensiones[1] - num_entrenamiento
+```
+
+La cantidad de filas del archivo es `r dimensiones[1]`. <br />
+La cantidad de columnas del archivo es `r dimensiones[2]`. <br />
+
+
+la variable de diagnóstico `wbcd$diagnosis` es relevante, por lo cual queremos predecirla a partir de otros factores. 
+
+Con la función table podemos verificar cuántos casos tenemos de cada tipo:
+```{r}
+table(wbcd$diagnosis)
+```
+
+Para facilitar la lectura, convertiremos la variable en factor: 
+
+```{r}
+# colocar diagnosis como factor
+wbcd$diagnosis <- factor(wbcd$diagnosis, levels= c("B", "M"), labels=c("Benign", "Malignant"))
+```
+
+Posteriormente, expresaremos los resultados como porcentaje:
+```{r}
+# expresion de resultados como porcentaje
+round(prop.table(table(wbcd$diagnosis))*100, digits=1)
+```
+
+En [@lantz2013machine] se utilizan tres características para propósitos ilustrativos, en este caso utilizaremos todas las variables normalizadas. Veamos las `r dimensiones[2]-1` variables numéricas restantes, que consisten en 3 medidas distintas de varias características del núcleo celular.
+```{r, fig.height=18, fig.width=18, echo=FALSE}
+ds <- wbcd[,2:(dimensiones[2]-1)]
+
+par(mfrow = c(6,5))
+for (i in 1:dim(ds)[2]) {
+   if (class(ds[,i]) == "factor") 
+     { try(plot(ds[,i],main = colnames(ds)[i]),TRUE)
+   } else
+     { try(boxplot(ds[,i],main = colnames(ds)[i]),TRUE)
+   }
+}
+```
+
+Como se puede observar, los valores observados difieren bastante entre las variables, lo cual representa un problema para aplicar el algoritmo k-NN. Para reesacalar las variables de forma que pueda aplicarse el algoritmo, utilizaremos una función encontrada en la bibliografía consultada [@lantz2013machine; @norm].
+
+```{r}
+normalize <- function(x) {
+return ((x - min(x)) / (max(x) - min(x)))
+}
+```
+
+Probaremos la función en dos vectores:
+```{r}
+normalize(c(1,2,3,4,5))
+normalize(c(100,200,300,400,500))
+```
+
+Nótese que la función cambia la escala de los valores de modo que representa las proporciones del total en cada punto de cada vector. 
+
+Ahora podremos aplicar la función `normalize()` a las características numéricas de nuestro data frame (una estructura de datos de R). En lugar de normalizar cada una de las 30 variables numéricas individualmente, podemos utilizar una de las funciones de R para automatizar el proceso.
+
+la función `lapply()` toma una lista y aplica una función específica a cada elemento de la lista. Dado que el data frame es una lista de vectores de igual longitud, podemos utilizar la función para aplicar `normalize()` a cada característica del data frame. El paso final es convertir el resultado en un data frame, utilizando la función `as.data.frame()`
+
+Todo el proceso luciría así:
+```{r}
+wbcd_n <- as.data.frame(lapply(wbcd[2:round(dimensiones[2],0)], normalize))
+```
+
+Dicho de forma sencilla, este comando aplica la función `normalize()` a las columnas 2 a 31, convierte la lista resultante a un data frame, y le asigna el nombre `wbcd_n`. El sufijo `_n` se agrega para recordarnos que los datos han sido normalizados. 
+
+Para confirmar que la transformación fue aplicada correctamente, observemos las estadísticas que resumen una variable: 
+
+```{r}
+summary(wbcd$perimeter_mean)
+summary(wbcd_n$perimeter_mean)
+```
+
+Como era de esperarse, la variable normalizada, que originalmente iba de `r min(wbcd$perimeter_mean)` a `r max(wbcd$perimeter_mean)`, ahora va de `r min(wbcd_n$perimeter_mean)` a `r max(wbcd_n$perimeter_mean)`. 
+
+## 3. Preparación de los datos - Creando datasets de entrenamiento y de prueba.
+
+Si bien es cierto que tenemos `r dimensiones[1]` datos, no es muy interesante predecir lo que ya sabemos, y no podemos saber qué tal está el desempeño del algoritmo, en términos de la cantidad de casos sobreajustados, o qué tan bién el programa siendo entrenado (learner, o aprendiz) generalizará los casos aún no vistos. 
+
+Una pregunta más interesante que puede hacerse sería qué tan bien nuestro learner se desempeña en un dataset de datos no etiquetados. Si tuviéramos acceso a un laboratorio, podríamos aplicar nuestro learner a las medidas de las próximas `r num_prueba`, masas con estatus de cáncer desconocido, y ver qué tan bien las predicciones del aprendiz de la máquina se comparan con los diagnósticos obtenidos utilizando datos convencionalres. 
+
+En ausencia de tal información, podemos simular este escenario dividiendo los datos en dos porciones: un dataset de entrenamiento que será utilizado que será utilizado para construir el modelo k-NN y un dataset de prueba que será utilizado para estimar la exactitud predictiva del modelo. Utilizaremos los primeros `r num_entrenamiento` récords para el data set de entrenamiento y los últimos `r num_prueba`, datos para simular nuevos pacientes. 
+
+Separaremos el data frame en el data set en el grupo de entrenamiento y el grupo de prueba:
+```{r}
+wbcd_train <- wbcd_n[1:as.integer(num_entrenamiento), ]
+wbcd_test <- wbcd_n[as.integer(num_entrenamiento+1):as.integer(dimensiones[1]), ]
+
+dim(wbcd_train)
+dim(wbcd_test)
+```
+
+Es importante notar que cuando se construyen datasets de entrenamiento y prueba, ambos deben ser representativos de data set completo. En este caso, los registros ya estaban ordenados al azar, por lo que pudimos permitirnos extraer `r num_prueba`, registros consecutivos para crear un dataset de prueba. 
+
+Esto no sería adecuado si los datos estuvieran ordenados cronológicamente o en grupos de valores semejantes. En estos casos, se requerirían métodos de muestreo aleatorio. 
+
+Cuando se construyeron los datasets de entrenamiento y prueba, se excluyó diagnóstico (`diagnosis`), que será la variable dependiente de nuestro modelo (lo que queremos predecir) o la variable "diana" (target variable). Para entrenar el modelo k-NN, necesitaremos guardar estas etiquetas de clase en vectores de factores, dividiendo entre los datasets de entrenamiento y prueba.
+
+```{r}
+#wbcd$diagnosis
+wbcd_train_labels <- wbcd[1:as.integer(num_entrenamiento), 1]
+wbcd_test_labels <- wbcd[as.integer(num_entrenamiento+1):as.integer(dimensiones[1]), 1]
+
+str(wbcd_train_labels)
+length(wbcd_train_labels)
+str(wbcd_test_labels)
+length(wbcd_test_labels)
+```
+
+Este código toma el factor `diagnosis` en la primera columna del data frame wbcd y crea los vectores `wbcd_train_labels` y `wbcd_test_labels`. Utilizaremos estos vectores en los próximos pasos de entrenar y evaluar nuestro clasificador.
+
+## 4. Entrenar un modelo en los datos
+
+Una vez que tenemos el dataset de entrenamiento y el vector de etiquetas, estamos listos para clasificar nuestros registros desconocidos. Para el algoritmo k-NN, la fase de entrenamiento no involucra la construcción de un modelo; el proceso de entrenar un "Aprendiz flojo" como k-NN simplemente involucra incluir los datos en un formato estructurado. 
+
+Para clasificar nuestras instancias de prueba, utilizaremos una implementación de k-NN del paquete `class` que aporta un conjunto de funciones básicas de R para clasificación. 
+Si este paquete no está instalado en su sistema, puede instalarlo de la siguiente forma:
+`install.packages("class")`. Sin embargo, vamos a comprobar primero si el paquete se puede cargar, y en caso de que no ocurra, procederemos a la instalación. 
+
+```{r}
+# verifica si class está instalado: 
+# en caso de no estarlo, lo instala
+# si está instalado, no hace nada.
+if(!(require(class))) install.packages("class")
+```
+
+Para cargar el paquete durante cualquier sesión en la cual desee utilizar las funciones, simplemente ingrese el comando: `library(class)`.
+
+La función `knn()` en el paquete `class` da una implementación estándar y clásica del algoritmo k-NN. Para cada instancia en los datos de prueba, la función identificará los `k` vecinos más cercanos, utilizando distancia euclídea, donde `k` es un número especificado por un usuario. La instancia de prueba es clasificada tomando un "voto" entre los `k` vecinos más cercanos, específicamente, esto involucra asignar la clase de la mayoría de los `k` vecinos. Un voto empatado se rompe al azar. 
+
+Una versión más sofisticada de este paquete puede ser `k-NN` otro paquete ubicado en Comprehensive R Archive Network(CRAN)[@lantz2013machine].
+
+Entrenamiento y clasificación utilizando la función `knn()` se realiza en una sola llamada de la función, utilizando 4 parámetros, como se muestra en la siguiente tabla:
+
+
+
+|            | **Sintaxis de la clasificación de kNN:** utilizando la función `knn()` en el paquete `class`            |
+|------------|-----------------------------------------------------------------------------|
+|            |**Construyendo el clasificador y haciendo predicciones:**          | 
+|            |                                                                             |
+|  Comando   |         `p <- knn(train, test, class, k)`                                  |
+|            |                                                                             |
+|   `Train`  |es en un dataframe que contiene datos numéricos de entrenamiento            |
+|   `Test`   |es un dataframe que contiene datos numéricos de prueba                      |
+|   `Class`  |es un vector de factores con la clase para cada fila en los datos de entrenamiento   |
+|   `k`      | es un número entero positivo                                               |
+|            |                                                                             |
+|            |La función retorna un vector de clases predichas para cada fila en los datos de prueba |
+|            |                                                                            |
+| Ejemplo:    |wbcd_pred <- knn( train= wbcd_train, test= wbcd_test, cl= wbcd_train_labels, k= 3 )| 
+
+
+Nota: la sintaxis de markdown fue redactada siguiendo un post de un [foro](https://talk.commonmark.org/t/tables-in-pure-markdown/81/144) [@mkdwn_tables]
+
+Ahora tenemos casi todo lo que necesitamos para aplicar el algoritmo k-NN a estos datos. Hemos dividido nuestros datos en dos datasets: entrenamiento y prueba, cada uno con exactamente la misma cantidad de características numéricas (variables). Las etiquetas (labels) para el entrenamiento de datos están almacenadas en un vector de factores separado. El único factor restante es `k`, que especifica el número de vecinos a incluir en el voto. 
+
+Dado que nuestros datos contienen 469 instancias, podríamos tratar `k = 21`, un número par aproximadamente igual a la raíz cuadrada de 469. Con una salida de 2 categorías, utilizar un número par elimina el chance de finalizar con un empate (no sería deseable asignar el voto al azar).
+
+Ahora podemos utilizar la función `knn()` para clasificar los datos de `test`:
+
+```{r}
+library(class)
+wbcd_test_pred <- knn(train = wbcd_train, test = wbcd_test, cl = wbcd_train_labels, k = 21)
+```
+
+La función `knn()` regresa un vector de factores de etiquetas predichas para cada ejemplo del dataset `test`, que hemos llamado `wbcd_test_pred`.
+
+## 5. Evaluando el desempeño del modelo
+
+El próximo paso del proceso es evaluar qué tan bien las clases predichas en el vector `wbcd_test_pred` coinciden con los valores conocidos en el vector `wbcd_test_labels`. Para hacer esto, podemos utilizar la función `CrossTable()` en el paquete `gmodels`. Que también se utiliza en el capítulo 2, correpondiente a manejo y comprensión de información [@lantz2013machine]. Si lo ha hecho ahora, por favor instale este paquete, utilizando el instrucción `install.packages("gmodels")`. 
+
+Luego de cargar el paquete con el comando `library(gmodels)`, podemos crear una tabulación cruzada indicando el acuerdo entre los dos vectores. Especificando `prop.chisq=FALSE` removerá los valores innecesarios de chi cuadrada de la salida. 
+
+```{r}
+# verifica si class está instalado: 
+# en caso de no estarlo, lo instala
+# si está instalado, no hace nada.
+if(!(require(gmodels))) install.packages("gmodels")
+library(gmodels)
+(Prueba <- CrossTable(x = wbcd_test_labels, y = wbcd_test_pred, prop.chisq=FALSE))
+```
+
+Los porcentajes de las celdas en la tabla indican la proporción de valores, que se dividen en cuatro categorías. La celda superior izquierda indica los resultados **negativos reales**. Estos `r Prueba$t[1]` de `r num_prueba` valores son casos en los que la masa era benigna y el algoritmo k-NN la identificaba correctamente como tal. La celda inferior derecha indica los resultados **positivos reales**, donde el clasificador y la etiqueta clínicamente determinada coinciden en que la masa es maligna. Un total de `r Prueba$t[4]` de `r num_prueba` predicciones fueron verdaderos positivos.
+
+Las celdas que caen en la otra diagonal contienen recuentos de ejemplos en los que el enfoque k-NN no está de acuerdo con la etiqueta verdadera (Error tipo I). Los dos ejemplos en la celda inferior izquierda son **falsos negativos**; En este caso, el valor predicho era benigno, pero el tumor era realmente maligno (Error tipo II). Los errores en esta dirección podrían ser extremadamente costosos, ya que podrían hacer que un paciente crea que no tiene cáncer, pero en realidad, la enfermedad puede continuar propagándose. La celda superior derecha contendría los **falsos positivos** (Error tipo I), si los hubiera. Estos valores se producen cuando el modelo clasifica una masa como maligna, pero en realidad era benigna. Aunque tales errores son menos peligrosos que un resultado falso negativo, también deben evitarse ya que podrían generar una carga financiera adicional en el sistema de atención médica o estrés adicional para el paciente, ya que es posible que se deban realizar pruebas o tratamientos adicionales.
+
+Un total de `r Prueba$t[2]` de cada `r num_prueba`, o el `r (Prueba$t[2]/num_prueba)*100` por ciento de las masas fueron clasificadas incorrectamente por el enfoque k-NN. Si bien la precisión del `r 100-(Prueba$t[2]/num_prueba)` por ciento parece impresionante para algunas líneas de código R, podríamos intentar otra iteración del modelo para ver si podemos mejorar el rendimiento y reducir la cantidad de valores que se han clasificado incorrectamente, particularmente porque los errores eran falsos negativos, que son peligrosos.
+
+## 6. Mejorando el desempeño del modelo
+
+Intentaremos dos variaciones simples en nuestro clasificador anterior. Primero, emplearemos un método alternativo para reescalar nuestras características numéricas. En segundo lugar, intentaremos varios valores diferentes para k.
+
+### Transformación - Estandarización por puntaje Z 
+Aunque la normalización se utiliza tradicionalmente para la clasificación k-NN, reescalar los valores podría no siempre ser lo más adecuado. Dado que los valores estandarizados por puntaje z no tienen un mínimo o máximo predefinido, los valores extremos no se comprimen hacia el centro. Uno podría sospechar que con un tumor maligno, podríamos ver algunos outliers muy extremos a medida que el tumor crece incontrolablemente. Podría, por lo tanto, ser razonable permitir que los outliers tengan más peso en el cálculo de la distancia. Veamos si la estandarización por puntaje z puede mejor nuestra exactitud predictiva.
+
+Para estandarizar un vector, podemos utilizar la función `scale()` incluida en R. Esta función reescala valores utilizando la estandarización por puntaje z por defecto, y además ofrece el beneficio adicional de que puede ser aplicada directamente a un data frame, así que podemos evitar el uso de la función `lapply()`. Para crear una versión estandarizada de los datos `wbcd`, podemos utilizar el siguiente comando:  
+```{r}
+wbcd_z <- as.data.frame(scale(wbcd[-1]))
+```
+
+Este comando reescala todas las características, con la excepción de `diagnosis` y guarda el resultado como el data frame `wbcd_z`. El sufijo `_z` es un recordatorio de que los valores fueron transformados por valores z. 
+
+Para confirmar que la transformación ha sido aplicada correctamente, observaremos el resumen estadístico de la variable utilizada anteriormente:
+
+```{r}
+summary(wbcd_z$perimeter_mean)
+```
+
+La media de una variable estandarizada por valores z siempre debería ser cero, y el rango debería ser bastante compacto. Un valor z mayor a 3 o -3 indica un valor extremadamente inusual. Con esto en mente, la transformación parece haber servido.
+
+Como hicimos anteriormente, necesitamos dividir los datos en data sets de entrenamiento y prueba, y luego clasificar las instancias de prueba utilizando la función `knn()`. Luego compararemos las etiquetas predichas con las reales utilizando `CrossTable()`:
+
+```{r}
+wbcd_train <- wbcd_z[1:as.integer(num_entrenamiento), ]
+wbcd_test <- wbcd_z[as.integer(num_entrenamiento+1):as.integer(dimensiones[1]), ]
+wbcd_train_labels <- wbcd[1:as.integer(num_entrenamiento), 1]
+wbcd_test_labels <- wbcd[as.integer(num_entrenamiento+1):as.integer(dimensiones[1]), 1]
+wbcd_test_pred <- knn(train = wbcd_train, test = wbcd_test, cl = wbcd_train_labels, k = 21)
+(prueba_e <- CrossTable(x = wbcd_test_labels, y = wbcd_test_pred, prop.chisq = FALSE))
+```
+
+Desafortunadamente, en la siguiente tabla, los resultados de nuestra nueva transformación muestran una ligera disminución en la precisión. En los casos en que habíamos clasificado correctamente el 98 por ciento de los ejemplos anteriormente, esta vez clasificamos solo el `r (prueba_e$t[1]+prueba_e$t[4])/num_prueba ` por ciento correctamente. Para empeorar las cosas, no mejoramos en la clasificación de los peligrosos falsos negativos ( ` r prueba$t[2] ` casos).
+
+## Probando valores alternativos de `k`
+Podríamos ser capaces de hacerlo mejor examinando el desempeño a lo largo de varios valores de `k`.
+Utilizando entrenamiento normalizado y datasets de prueba, los mismos 100 rectors fueron clasificados utilizando distintos valores de `k`. El número de falsos negativos y falsos positivos se muestran para cada interacción:
+
+```{r echo=FALSE, results="hide"}
+wbcd_test_pred <- knn(train = wbcd_train, test = wbcd_test, cl = wbcd_train_labels, k = 1)
+p_1 <- CrossTable(x = wbcd_test_labels, y = wbcd_test_pred, prop.chisq = FALSE)
+wbcd_test_pred <- knn(train = wbcd_train, test = wbcd_test, cl = wbcd_train_labels, k = 5)
+p_5 <- CrossTable(x = wbcd_test_labels, y = wbcd_test_pred, prop.chisq = FALSE)
+wbcd_test_pred <- knn(train = wbcd_train, test = wbcd_test, cl = wbcd_train_labels, k = 11)
+p_11 <- CrossTable(x = wbcd_test_labels, y = wbcd_test_pred, prop.chisq = FALSE)
+wbcd_test_pred <- knn(train = wbcd_train, test = wbcd_test, cl = wbcd_train_labels, k = 15)
+p_15 <- CrossTable(x = wbcd_test_labels, y = wbcd_test_pred, prop.chisq = FALSE)
+wbcd_test_pred <- knn(train = wbcd_train, test = wbcd_test, cl = wbcd_train_labels, k = 21)
+p_21 <- CrossTable(x = wbcd_test_labels, y = wbcd_test_pred, prop.chisq = FALSE)
+wbcd_test_pred <- knn(train = wbcd_train, test = wbcd_test, cl = wbcd_train_labels, k = 27)
+p_27 <- CrossTable(x = wbcd_test_labels, y = wbcd_test_pred, prop.chisq = FALSE)
+```
+
+
+| valor k  | Falsos negativos  | Falsos positivos  | Porcentaje clasificado incorrectamente |
+|----------|-------------------|-------------------|----------------------------------------|
+| 1        | `r p_1$t[2]`      | `r p_1$t[3]`      | `r (p_1$t[2]+p_1$t[3])/num_prueba`      |
+| 5        | `r p_5$t[2]`      | `r p_5$t[3]`      | `r (p_5$t[2]+p_5$t[3])/num_prueba`      |
+| 11       | `r p_11$t[2]`     | `r p_11$t[3]`     | `r (p_11$t[2]+p_11$t[3])/num_prueba`    |
+| 15       | `r p_15$t[2]`     | `r p_15$t[3]`     | `r (p_15$t[2]+p_15$t[3])/num_prueba`    |
+| 21       | `r p_21$t[2]`     | `r p_21$t[3]`     | `r (p_21$t[2]+p_21$t[3])/num_prueba`    |
+| 27       | `r p_27$t[2]`     | `r p_27$t[3]`     | `r (p_27$t[2]+p_27$t[3])/num_prueba`    |
+
+
+Aunque el clasificador nunca fue perfecto, utilizar 1-NN fue capaz de evitar falsos negativos, a costa de agregar falsos positivos. Es importante tener en mente, sin embargo, que sería insensato ajustar nuestro enfoque demasiado cerca a nuestros datos de prueba; después de todo, es probable que un conjunto diferente de 100 registros de pacientes sea algo diferente de los utilizados para medir nuestro desempeño.
+
+## Resumen
+Aprendimos sobre la clasificación usando k-NN. A diferencia de muchos algoritmos de clasificación, k-NN no aprende nada. Simplemente almacena los datos de entrenamiento al pie de la letra. Los ejemplos de prueba sin etiquetar se comparan con los registros más similares en el conjunto de entrenamiento utilizando una función de distancia, y al ejemplo sin etiqueta se le asigna la etiqueta de sus vecinos.
+
+A pesar de que k-NN es un algoritmo muy simple, es capaz de abordar tareas extremadamente complejas, como la identificación de masas cancerosas. En unas pocas líneas simples de código R, pudimos identificar correctamente si una masa era maligna o benigna el 98 por ciento del tiempo.
+
+La fecha de redacción de este reporte es `r params$date`
+
+## 7. Bibliografía

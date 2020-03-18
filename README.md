@@ -2,7 +2,7 @@
 Asignaciones de la UOC en el Master de Bioestadística y Bioinformática
 
 Cuatrimestre 1:
-M0.151 - HPIB
+M0.151 - HPIB 
 M0.153 - SAD
 M0.155 - IE
 

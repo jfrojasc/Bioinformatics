@@ -1,0 +1,198 @@
+---
+title: "Debate_ómicas-Ejercicio_2"
+author: "José Félix Rojas Cabeza"
+date: "3/6/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+require(knitr)
+# include this code chunk as-is to set options
+opts_chunk$set(comment = NA, prompt = TRUE, tidy = FALSE, 
+               fig.width = 7, fig.height = 7,echo = TRUE, 
+               message = FALSE, warning = FALSE, cache=TRUE)
+Sys.setlocale("LC_TIME", "C")
+```
+
+```{r, echo=FALSE}
+
+if(!(require(MASS))) install.packages("MASS")
+if(!(require(DESeq))) BiocManager::install(c("DESeq"))
+if(!(require(DESeq2))) BiocManager::install(c("DESeq2"))
+if(!(require(edgeR))) BiocManager::install(c("edgeR"))
+if(!(require(baySeq))) BiocManager::install(c("baySeq"))
+if(!(require(limma))) BiocManager::install(c("limma"))
+if(!(require(Biobase))) BiocManager::install(c("Biobase"))
+if(!(require(convert))) BiocManager::install(c("convert"))
+if(!(require(printr))) {
+  install.packages('printr',
+            type = 'source',
+            repos = c('http://yihui.name/xran', 'http://cran.rstudio.com')
+  )
+}
+```
+
+# Ejercicio 1: <br />
+## - **Título del estudio:**<br />
+Systematic variation in gene expression patterns in human cancer cell lines (2000).
+
+## - **Tipo de microarrays que utilizan:**
+cDNA (2 Colores) fabricado por Synteni Inc. (Incyte Pharmaceuticals).
+
+## - **Número de muestras y grupos que contiene el estudio:**
+~8,000 genes de 60 líneas celulares utilizadas por el NCI (enlace).
+
+## - **¿Qué pregunta principal persigue responder?**
+Class comparison: Perfiles de expresión de las líneas NCI60 (derivadas de tejidos tumorales diversos). Se compararon los tejidos de proveniencia con patrones de expresión.
+
+## - **Enlace a los datos y/o al artículo**: 
+[Artículo](https://www.nature.com/articles/ng0300_227) <br />
+[NCI60](http://genome-www.stanford.edu/nci60) <br />
+[Miner](http://discover.nci.nih.gov) <br />
+
+- **Comentarios adicionales:**
+El estudio fue emparejado con otro que explora la relación entre los patrones de expresión genética y los perfiles de sensibilidad a otros fármacos -Scherf, U. et al. A gene expression database for the molecular pharmacology of cancer. Nature Genet. 24, 236– 244 (2000)-
+
+Se observó correspondencia entre las regiones de procedencia del tejido tumoral y los patrones de expresión génica.
+
+El aporte principal del estudio fue un marco de trabajo que ayudó a observar interacciones entre un tumor y su microambiente. 
+
+```{r}
+library(edgeR)
+```
+
+
+# Ejercicio 2: `Biobase` y `GEOquery` 
+
+```{r}
+# Comando de instalación del manejador de Bioconductor
+if(!(require(BiocManager))) install.packages("BiocManager")
+if(!(require(Biobase))) BiocManager::install(c("Biobase"))
+if(!(require(GEOquery))) BiocManager::install(c("GEOquery"))
+
+# Abre las guías
+browseVignettes("Biobase") 
+browseVignettes("GEOquery")
+```
+
+Muestra las siguientes direcciones locales:
+[Biobase](http://127.0.0.1:14947/session/Rvig.4746672896.html) <br />
+[GEOquery](http://127.0.0.1:14947/library/GEOquery/doc/GEOquery.html) <br />
+
+```{r}
+library(Biobase)
+library(convert)
+```
+
+```{r}
+# Instalación de paquetes
+# 2 chunks arriba
+
+# "Carga" del paquete
+library(GEOquery)
+
+# se bajan algunos paquetes de internet 
+# se escogieron los archivos mencionados como ejemplo en el tutorial de GEoquery
+gds <- getGEO("GDS507") 
+gsm <- getGEO("GSM11805")
+gse <- getGEO("GSE507") # este se escogió al azar
+  
+# encabezados de los datasets tomados de la red
+head(Meta(gds))
+head(Meta(gsm))
+
+# descripciones de las columnas de los datasets
+Columns(gds)
+Columns(gsm)
+```
+
+```{r}
+# se muestra la información de los 2 tipos de datos 
+# (nótese que GPL se comporta como GSM)
+show(gds)
+show(gsm)
+```
+
+```{r}
+# Conversión de GDS a ExpressionSet
+eset_gds <- GDS2eSet(gds,do.log2 = T)
+```
+
+```{r}
+pData(eset_gds)
+exprs(eset_gds)
+```
+
+```{r}
+# ExpressionSet de cero
+
+#dataDirectory <- system.file("extdata", package="Biobase")
+#exprsFile <- file.path("C:/Users/josef/Dropbox/Documents/Personal/UOC/3er Cuatrimestre/M0.157-ADO/Evaluacion/20200227-Debate", "dummy.txt")
+#exprs <- as.matrix(read.table(exprsFile, header=TRUE, sep="\t", row.names=1, as.is=TRUE))
+#head(exprs)
+#"C:/Users/josef/Dropbox/Documents/Personal/UOC/3er Cuatrimestre/M0.157-ADO/Evaluacion/20200227-Debate/dummy.txt"
+```
+
+```{r}
+ExpFile <- "C:/Users/josef/Dropbox/Documents/Personal/UOC/3er Cuatrimestre/M0.157-ADO/Evaluacion/20200227-Debate/dummy.txt"
+Exp <- as.matrix(read.table(ExpFile, header=TRUE, sep="\t", row.names=1, as.is=TRUE))
+head(Exp)
+class(Exp)
+dim(Exp)
+colnames(Exp)
+head(Exp[,1:5])
+```
+
+```{r}
+require(Biobase)
+minimalSet <- ExpressionSet(assayData = Exp)
+str(minimalSet)
+
+# nótese que como fue creado con un archivo dummy generado con excel, la mayoría de la información está faltante. 
+```
+
+## Expression values:
+
+
+
+## pData:
+
+El ExpressionSet hecho a mano no tiene un pdata, lo colocaremos a continuación:
+```{r}
+pDataFile <- file.path("C:/Users/josef/Dropbox/Documents/Personal/UOC/3er Cuatrimestre/M0.157-ADO/Evaluacion/20200227-Debate/", "pData.txt")
+pData <- read.table(pDataFile, row.names=1, header=TRUE, sep="\t")
+dim(pData)
+```
+
+# Ejercicio 3
+
+El estudio es de comparación de clases: Se verificó la correspondencia entre las líneas de las que provenía el tejido y los patrones de expresión. El estudio aportó una caracterización molecular, y su relación con tumores *in vivo*.
+
+Para diseñar el estudio deben considerarse los factores biológicos (tratamiento, replicación), técnicos (replicación, efectos de reactivos), y del microarray (lugar y el arreglo).
+
+Considerando los 9703 genes, y aceptando una tasa de error de 5% (486 falsos positivos) y una diferencia desea del triple, un poder de 90%, y una desviación de 50% se estima [enlace](https://bioinformatics.mdanderson.org/MicroarraySampleSize/) que deberían utilizarse 3 muestras por grupo. Aceptando la hipótesis *ad hoc* de que los genes se distribuyen de manera normal. 
+
+Es importante mencionar que debido a que este estudio fue realizado hace ya 20 años, podría considerarse el uso de una tecnología más reciente para obtener más información de utilidad sobre las líneas estudiadas. 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

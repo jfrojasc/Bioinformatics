@@ -3,15 +3,15 @@ title: "ADO - PEC1 - Informe del análisis"
 author: "José Félix Rojas Cabeza"
 date: "`r format(Sys.time(), '%Y - %B - %d')`"
 output:
-  pdf_document:
-    toc: yes
-  word_document:
-    toc: yes
   html_document:
     code_folding: show
     theme: lumen
     toc: yes
     toc_float: yes
+  word_document:
+    toc: yes
+  pdf_document:
+    toc: yes
 bibliography: referencias.bib
 ---
 ```{r setup, include=FALSE}
@@ -122,7 +122,7 @@ Sys.setlocale("LC_TIME", "C")
 ```
 
 # Abstract: 
-Se investigó la expresión diferencial de genes en células CML CD34+ sometidas a dos tratamientos en un modelo 2x2, Se realizó un workflow típico donde se obtuvieron, las listas de los genes diferencialmente expresados por cada tratamiento, volcano plots, un heatmap ordenado de los genes diferencialmente expresados, y mapas de redes. Los datos y el código para el análisis se proporcionan en un repositorio de [github]()
+Se investigó la expresión diferencial de genes en células CML CD34+ sometidas a dos tratamientos en un modelo 2x2, Se realizó un workflow típico donde se obtuvieron, las listas de los genes diferencialmente expresados por cada tratamiento, volcano plots, un heatmap ordenado de los genes diferencialmente expresados, y mapas de redes. Los datos y el código para el análisis se proporcionan en un repositorio de [github](https://github.com/jfrojasc/UOC/tree/master/M0.157%20-%20ADO/PEC1/CML).
 
 
 # Objetivos:

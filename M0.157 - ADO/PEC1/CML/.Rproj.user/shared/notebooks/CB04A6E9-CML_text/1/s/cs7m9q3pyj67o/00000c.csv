@@ -1,0 +1,4 @@
+"0","library(knitr)"
+"0",""
+"0","# Table"
+"0","kable(targets, booktabs = TRUE, caption = ""Contenido del archivo `targets.csv` utilizados para este análisis"")"

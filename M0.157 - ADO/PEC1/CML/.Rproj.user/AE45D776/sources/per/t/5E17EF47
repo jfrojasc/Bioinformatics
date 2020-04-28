@@ -1,0 +1,26 @@
+{
+    "collab_server" : "",
+    "contents" : "",
+    "created" : 1587917994080.000,
+    "dirty" : false,
+    "encoding" : "UTF-8",
+    "folds" : "",
+    "hash" : "907714149",
+    "id" : "5E17EF47",
+    "lastKnownWriteTime" : 1588036661,
+    "last_content_update" : 1588036661571,
+    "path" : "~/R_Docs/M0.157/CML/CML_text.Rmd",
+    "project_path" : "CML_text.Rmd",
+    "properties" : {
+        "cursorPosition" : "786,3",
+        "last_setup_crc32" : "BE3804EEde3b120e",
+        "scrollLine" : "781"
+    },
+    "read_only" : false,
+    "read_only_alternatives" : [
+    ],
+    "relative_order" : 1,
+    "source_on_save" : false,
+    "source_window" : "",
+    "type" : "r_markdown"
+}

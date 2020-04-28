@@ -1,0 +1,6 @@
+"ID","Description","GeneRatio","BgRatio","pvalue","p.adjust","qvalue","geneID","Count"
+"R-HSA-9617629","Regulation of FOXO transcriptional activity by acetylation","1/1","10/10616",0.000941974378297017,0.00313991459432283,NA,"TXNIP",1
+"R-HSA-844456","The NLRP3 inflammasome","1/1","15/10616",0.00141296156744553,0.00313991459432283,NA,"TXNIP",1
+"R-HSA-622312","Inflammasomes","1/1","20/10616",0.0018839487565937,0.00313991459432283,NA,"TXNIP",1
+"R-HSA-168643","Nucleotide-binding domain, leucine rich repeat containing receptor (NLR) signaling pathways","1/1","54/10616",0.00508666164280336,0.00612283345892994,NA,"TXNIP",1
+"R-HSA-9614085","FOXO-mediated transcription","1/1","65/10616",0.00612283345892994,0.00612283345892994,NA,"TXNIP",1

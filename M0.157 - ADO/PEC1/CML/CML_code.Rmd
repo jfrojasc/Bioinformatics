@@ -1,0 +1,595 @@
+---
+title: "ADO - PEC1 - Primera prueba de evaluación contínua - Código"
+author: "José Félix Rojas Cabeza"
+date: "`r format(Sys.time(), '%d de %B de %Y')`"
+output:
+  html_document:
+    code_folding: show
+    theme: lumen
+    toc: yes
+    toc_float: yes
+  word_document:
+    toc: yes
+  pdf_document:
+    toc: yes
+---
+```{r setup, include=FALSE}
+require(knitr)
+# include this code chunk as-is to set options
+opts_chunk$set(comment = NA, prompt = TRUE, tidy = FALSE, 
+               fig.width = 7, fig.height = 7,echo = FALSE,
+               fig.align='center',
+               message = FALSE, warning = FALSE, cache=TRUE)
+Sys.setlocale("LC_TIME", "C")
+```
+
+```{r echo=FALSE}
+# verifica si un paquete está instalado, si no lo está, lo instala
+# if(!(require(paquete))) install.packages("paquete")
+# if(!(require())) install.packages("")
+# para instalar de bioconductor
+# if(!(require())) BiocManager::install("") 
+
+#if (!requireNamespace("BiocManager", quietly = TRUE))
+#    install.packages("BiocManager")
+#BiocManager::install()
+```
+
+```{r}
+# Instalación de paquetes
+#if(!(require(knitr))) install.packages("knitr")
+#if(!(require(colorspace))) install.packages("colorspace")
+#if(!(require(gplots))) install.packages("gplots")
+#if(!(require(ggrepel))) install.packages("ggrepel")
+#if(!(require(htmlTable))) install.packages("htmlTable")
+#if(!(require(prettydoc))) install.packages("prettydoc")
+#if(!(require(devtools))) install.packages("devtools")
+#if(!(require(BiocManager))) install.packages("BiocManager")
+#if(!(require(Biobase))) install.packages("Biobase")
+#if(!(require(gplots))) BiocManager::install("gplots")
+#if(!(require(ggplot2))) BiocManager::install("ggplot2")
+#if(!(require(ggrepel))) BiocManager::install("ggrepel")
+#if(!(require(oligo))) BiocManager::install("oligo")
+#if(!(require(pd.mogene.2.1.st))) BiocManager::install("pd.mogene.2.1.st")
+#if(!(require(arrayQualityMetrics))) BiocManager::install("arrayQualityMetrics")
+#if(!(require(pvca))) BiocManager::install("pvca")
+#if(!(require(limma))) BiocManager::install("limma")
+#if(!(require(genefilter))) BiocManager::install("genefilter")
+#if(!(require(annotate))) BiocManager::install("annotate")
+#if(!(require(org.Mm.eg.db))) BiocManager::install("org.Mm.eg.db")
+#if(!(require(ReactomePA))) BiocManager::install("ReactomePA")
+#if(!(require(reactome.db))) BiocManager::install("reactome.db")
+#if(!(require(pd.hg.u133.plus.2))) BiocManager::install("pd.hg.u133.plus.2")
+#if(!(require(hgu133plus2.db))) BiocManager::install("hgu133plus2.db")
+#if(!(require(pd.hugene.1.0.st.v1))) BiocManager::install("pd.hugene.1.0.st.v1")
+#if(!(require(hugene10sttranscriptcluster.db))) BiocManager::install("hugene10sttranscriptcluster.db") 
+#if(!(require(org.Hs.eg.db))) BiocManager::install("org.Hs.eg.db") 
+#if(!(require(printr))) {
+#  install.packages(
+#    'printr',
+#    type = 'source',
+#    repos = c('http://yihui.name/xran', 'http://cran.rstudio.com')
+#  )
+#}
+```
+
+```{R}
+dir.create("data")
+dir.create("results")
+```
+
+```{R}
+library(GEOquery)
+
+Series_Matrix <- getGEO("GPL6244") 
+#[HuGene-1_0-st] Affymetrix Human Gene 1.0 ST Array
+#library(pd.hugene.1.0.st.v1)
+#library(hugene10sttranscriptcluster.db)
+```
+
+```{R}
+RB585_NN <- getGEO("GSM1058965") #1
+RB585_NI <- getGEO("GSM1058966") #2
+RB585_SN <- getGEO("GSM1058967") #3
+RB585_SI <- getGEO("GSM1058968") #4
+RB611_NN <- getGEO("GSM1058969") #5
+RB611_NI <- getGEO("GSM1058970") #6
+RB611_SN <- getGEO("GSM1058971") #7
+RB611_SI <- getGEO("GSM1058972") #8
+RB626_NN <- getGEO("GSM1058973") #9
+RB626_NI <- getGEO("GSM1058974") #10
+RB626_SN <- getGEO("GSM1058975") #11
+RB626_SI <- getGEO("GSM1058976") #12
+
+
+```
+
+```{r}
+# Información en los datos GSM
+Meta(RB585_NN)$platform_id
+Meta(RB585_NN)$series_id
+Meta(RB585_NN)$data_row_count
+```
+
+```{r}
+datos_protocolo <- function(x){
+c(Meta(x)$extract_protocol,
+Meta(x)$hyb_protocol,
+Meta(x)$label_ch1,
+Meta(x)$label_protocol_ch1,
+Meta(x)$molecule_ch1)
+}
+
+datos_protocolo(RB585_NN)
+```
+
+```{r}
+targets <- read.csv2("./data/targets.csv", header = TRUE, sep = ";")
+
+# Fixing the name of the first column
+colnames(targets)[1] = "file_name"
+```
+
+```{r}
+library(knitr)
+
+# Table
+kable(targets, booktabs = TRUE, caption = "Content of the targets file used for the current analysis")
+```
+
+```{r warning=FALSE}
+library(oligo)
+celFiles <- list.celfiles("./data", full.names = TRUE)
+```
+
+```{r}
+library(Biobase)
+library(oligo)
+my_targets <-read.AnnotatedDataFrame(file.path("./data","targets.csv"), 
+                                     header = TRUE, row.names = 1, 
+                                     sep=";") 
+raw_data <- read.celfiles(celFiles, phenoData = my_targets)
+```
+
+```{r}
+my_targets@data$ShortName->rownames(pData(raw_data))
+colnames(raw_data) <-rownames(pData(raw_data)) 
+
+head(raw_data)
+```
+
+```{r}
+library(arrayQualityMetrics)
+arrayQualityMetrics(raw_data)
+```
+
+```{r}
+library(ggplot2)
+library(ggrepel)
+plotPCA3 <- function (datos, labels, factor, title, scale,colores, size = 1.5, glineas = 0.25) {
+  data <- prcomp(t(datos),scale=scale)
+  # plot adjustments
+  data_df <- data.frame(data$x)
+  Group <- factor
+  loads <- round(data$sdev^2/sum(data$sdev^2)*100,1)
+  # main plot
+  p1 <- ggplot(data_df,aes(x=PC1, y=PC2)) +
+    theme_classic() +
+    geom_hline(yintercept = 0, color = "gray70") +
+    geom_vline(xintercept = 0, color = "gray70") +
+    geom_point(aes(color = Group), alpha = 0.55, size = 3) +
+    coord_cartesian(xlim = c(min(data$x[,1])-5,max(data$x[,1])+5)) +
+    scale_fill_discrete(name = "Group")
+  # avoiding labels superposition 
+  p1 + geom_text_repel(aes(y = PC2 + 0.25, label = labels),segment.size = 0.25, size = size) + 
+    labs(x = c(paste("PC1",loads[1],"%")),y=c(paste("PC2",loads[2],"%"))) +  
+    ggtitle(paste("Principal Component Analysis for: ",title,sep=" "))+ 
+    theme(plot.title = element_text(hjust = 0.5)) +
+    scale_color_manual(values=colores)
+}
+``` 
+
+```{r}
+plotPCA3(exprs(raw_data), labels = targets$short_name, factor = targets$group, 
+         title="Raw data", scale = FALSE, size = 3, 
+         colores = c("red","blue","green","yellow"))
+```
+
+```{r}
+dim(raw_data@assayData[["exprs"]])
+``` 
+```{r} 
+raw_data@annotation
+``` 
+
+```{r}
+raw_data@protocolData@dimLabels
+```  
+
+```{r}
+boxplot(raw_data, cex.axis=0.5, las=2,  which="all", 
+         col = c(rep("red", 3), rep("blue", 3), rep("green",3),rep("yellow",3)), xlab="Red: NI_, Blue: NN_, Yellow: SI_, Green: SN_",
+         ylab= "Raw Intensity",
+         main="Distribution of Raw Intensity Values")
+```
+
+```{r}
+# normalization
+eset_rma <- rma(raw_data)
+```
+
+```{r}
+library(arrayQualityMetrics)
+arrayQualityMetrics(eset_rma, outdir = file.path("./results", "QCDir.Norm"), force=TRUE)
+```
+
+````{r}
+plotPCA3(exprs(eset_rma), labels = targets$short_name, factor = targets$group, 
+         title="Normalized data", scale = FALSE, size = 3, 
+         colores = c("red", "blue", "green", "yellow"))
+``` 
+
+```{r}
+boxplot(eset_rma, cex.axis=0.5, las=2,  which="all", 
+         col = c(rep("red", 3), rep("blue", 3), rep("yellow", 3), rep("green", 3)),
+         xlab="Red: NI, Blue: NN, Yellow: SI, Green: SN", ylab= "Raw Intensity",
+         main="Boxplot for arrays intensity: Normalized Data")
+```
+
+```{r}
+library(pvca)
+pData(eset_rma) <- targets
+
+pct_threshold <- 0.6
+
+batch.factors <- c("control", "supplement")
+
+pvcaObj <- pvcaBatchAssess (eset_rma, batch.factors, pct_threshold)
+```
+
+```{r}
+bp <- barplot(pvcaObj$dat, xlab = "Effects",
+  ylab = "Weighted average proportion variance",
+  ylim= c(0,1.1),col = c("lightblue"), las=2,
+  main="PVCA estimation")
+axis(1, at = bp, labels = pvcaObj$label, cex.axis = 0.55, las=2)
+values = pvcaObj$dat
+new_values = round(values , 3)
+text(bp,pvcaObj$dat,labels = new_values, pos=3, cex = 0.5)
+```
+
+```{r}
+#SD of all samples (all genes) ordered from smallest to largest
+sds  <- apply (exprs(eset_rma), 1, sd)
+sdsO <- sort(sds)
+plot(1:length(sdsO), sdsO, main="Distribution of variability for all genes",
+     sub="Vertical lines represent 90% and 95% percentiles",
+     xlab="Gene index (from least to most variable)", ylab="Standard deviation")
+abline(v=length(sds)*c(0.9,0.95))
+```
+
+```{r}
+# filtering
+library(genefilter)
+library(hugene10sttranscriptcluster.db)
+
+annotation(eset_rma) <- "hugene10sttranscriptcluster.db"
+filtered <- nsFilter(eset_rma, 
+                     require.entrez = TRUE, remove.dupEntrez = TRUE,
+                     var.filter=TRUE, var.func=IQR, var.cutoff=0.75, 
+                     filterByQuantile=TRUE, feature.exclude="^AFFX")
+```
+
+```{r}
+names(filtered)
+class(filtered$eset)
+```
+
+```{r}
+print(filtered$filter.log)
+eset_filtered <-filtered$eset
+```
+```{r}
+write.csv(exprs(eset_rma), file="./results/normalized.Data.csv")
+write.csv(exprs(eset_filtered), file="./results/normalized.Filtered.Data.csv")
+save(eset_rma, eset_filtered, file="./results/normalized.Data.Rda")
+```
+
+```{r}
+library(limma)
+design_mat<- model.matrix(~0+group, pData(eset_filtered))
+colnames(design_mat) <- c("C.NO", "N.MSC", "N.MSCplusIM","N.IM")
+print(design_mat)
+```
+
+```{r}
+# control is placed first because treatment decreases expression levels
+cont.matrix <- makeContrasts (IM = C.NO - N.IM,
+                              CMR = C.NO - N.MSC,
+                              INT = C.NO - N.MSCplusIM,
+                              levels = design_mat)
+cont.matrix
+```
+
+```{r}
+# Linear model fit
+library(limma)
+fit <- lmFit(eset_filtered, design_mat)
+fit.main <- contrasts.fit(fit, cont.matrix)
+fit.main <- eBayes(fit.main)
+class(fit.main)
+```
+
+```{r}
+top_tabs_IM <- topTable (fit.main, number=nrow(fit.main), coef="IM", adjust="fdr") 
+head(top_tabs_IM)
+```
+
+```{r}
+top_tabs_CMR <- topTable (fit.main, number=nrow(fit.main), coef="CMR", adjust="fdr")
+head(top_tabs_CMR)
+```
+
+```{r}
+top_tabs_INT  <- topTable (fit.main, number=nrow(fit.main), coef="INT", adjust="fdr") 
+head(top_tabs_INT)
+``` 
+
+```{r}
+# Gene Annotation function
+annotatedTopTable <- function(topTab, anotPackage)
+{
+  topTab <- cbind(PROBEID=rownames(topTab), topTab)
+  myProbes <- rownames(topTab)
+  thePackage <- eval(parse(text = anotPackage))
+  geneAnots <- select(thePackage, myProbes, c("SYMBOL", "ENTREZID", "GENENAME"))
+  annotatedTopTab<- merge(x=geneAnots, y=topTab, by.x="PROBEID", by.y="PROBEID")
+return(annotatedTopTab)
+}
+```
+
+```{r}
+top_annotated_IM <- annotatedTopTable(top_tabs_IM,anotPackage="hugene10sttranscriptcluster.db")
+
+top_annotated_CMR <- annotatedTopTable(top_tabs_CMR,anotPackage="hugene10sttranscriptcluster.db")
+
+top_annotated_INT <- annotatedTopTable(top_tabs_INT,anotPackage="hugene10sttranscriptcluster.db")
+
+write.csv(top_annotated_IM, file="./results/top_annotated_IM.csv")
+
+write.csv(top_annotated_CMR, file="./results/top_annotated_CMR.csv")
+
+write.csv(top_annotated_INT, file="./results/top_annotated_INT.csv")
+```
+
+```{r echo=FALSE}
+short<- head(top_annotated_IM[1:5,1:4])
+# library(kableExtra)
+# knitr::kable(
+#   short, booktabs = TRUE,
+#   caption = 'Annotations added to results "topTable" for the comparison "MvsWT"'
+# )
+show(short)
+```
+
+```{r}
+# Volcano Plot
+# For the volcano plots of the other comparisons change coef= and 
+# the coefficient in colnames(cont.matrix)[]
+library(hugene10sttranscriptcluster.db)
+gene_symbols <- select(hugene10sttranscriptcluster.db, rownames(fit.main), c("SYMBOL"))
+SYMBOLS <- gene_symbols$SYMBOL
+volcanoplot(fit.main, coef=1, highlight=4, names=SYMBOLS, 
+            main=paste("Differentially expressed genes", 
+                       colnames(cont.matrix)[1], sep="\n"))
+  abline(v=c(-1,1))
+```
+
+```{r}
+# Decide Tests
+library(limma)
+res<-decideTests(fit.main, method="separate", adjust.method="fdr", p.value=0.1, lfc=1)
+```
+
+```{r}
+sum.res.rows<-apply(abs(res),1,sum)
+res.selected<-res[sum.res.rows!=0,] 
+print(summary(res))
+```
+
+```{r}
+# Not so useful
+
+vennDiagram (res.selected[,1:3], cex=0.9)
+title("Genes in common between the comparison\n Genes selected with FDR < 0.1 and logFC > 1")
+```
+```{r}
+res.selected
+```
+
+```{r}
+probesInHeatmap <- rownames(res.selected)
+HMdata <- exprs(eset_filtered)[rownames(exprs(eset_filtered)) %in% probesInHeatmap,]
+
+geneSymbols <- select(hugene10sttranscriptcluster.db, rownames(HMdata), c("SYMBOL"))
+SYMBOLS<- geneSymbols$SYMBOL
+rownames(HMdata) <- SYMBOLS
+write.csv(HMdata, file = file.path("./results/data4Heatmap.csv"))
+```
+
+```{r}
+my_palette <- colorRampPalette(c("gray100", "lightblue"))(n = 14)
+library(gplots)
+
+heatmap.2(HMdata,
+          Rowv = FALSE,
+          Colv = FALSE,
+          main = "Differentially expressed genes \n FDR < 0,1, logFC >=1",
+          scale = "row",
+          col = my_palette,
+          sepcolor = "white",
+          sepwidth = c(0.05,0.05),
+          cexRow = 0.5,
+          cexCol = 0.9,
+          key = TRUE,
+          keysize = 1.5,
+          density.info = "histogram",
+          ColSideColors = c(rep("red",3),rep("blue",3), rep("green", 3),rep("yellow", 3)),
+          tracecol = NULL,
+          dendrogram = "none",
+          srtCol = 30)
+
+```
+
+```{r}
+probesInHeatmap <- rownames(res.selected)
+HMdata <- exprs(eset_filtered)[rownames(exprs(eset_filtered)) %in% probesInHeatmap,]
+
+geneSymbols <- select(hugene10sttranscriptcluster.db, rownames(HMdata), c("SYMBOL"))
+SYMBOLS<- geneSymbols$SYMBOL
+rownames(HMdata) <- SYMBOLS
+write.csv(HMdata, file = file.path("./results/data4Heatmap.csv"))
+```
+
+```{r}
+my_palette <- colorRampPalette(c("gray100", "lightblue"))(n = 299)
+library(gplots)
+
+heatmap.2(HMdata,
+          Rowv = FALSE,
+          Colv = FALSE,
+          main = "Differentially expressed genes \n FDR < 0,1, logFC >=1",
+          scale = "row",
+          col = my_palette,
+          sepcolor = "white",
+          sepwidth = c(0.05,0.05),
+          cexRow = 0.5,
+          cexCol = 0.9,
+          key = TRUE,
+          keysize = 1.5,
+          density.info = "histogram",
+          ColSideColors = c(rep("red",3),rep("blue",3), rep("green",3), rep("yellow",3)),
+          tracecol = NULL,
+          dendrogram = "none",
+          srtCol = 30)
+```
+
+```{r}
+heatmap.2(HMdata,
+          Rowv = TRUE,
+          Colv = TRUE,
+          dendrogram = "both",
+          main = "Differentially expressed genes \n FDR < 0,1, logFC >=1",
+          scale = "row",
+          col = my_palette,
+          sepcolor = "white",
+          sepwidth = c(0.05,0.05),
+          cexRow = 0.5,
+          cexCol = 0.9,
+          key = TRUE,
+          keysize = 1.5,
+          density.info = "histogram",
+          ColSideColors = c(rep("red",3),rep("blue",3), rep("green",3), rep("yellow",3)),
+          tracecol = NULL,
+          srtCol = 30)
+
+```
+
+```{r}
+listOfTables <- list(IM = top_tabs_IM,
+                     CMR = top_tabs_CMR,
+                     INT = top_tabs_INT)
+
+listOfSelected <- list()
+for (i in 1:length(listOfTables)){
+  # select the toptable
+  topTab <- listOfTables[[i]]
+  # select the genes to be included in the analysis
+  whichGenes<-topTab["adj.P.Val"]<0.15
+  selectedIDs <- rownames(topTab)[whichGenes]
+  # convert the ID to Entrez
+  EntrezIDs<- select(hugene10sttranscriptcluster.db, selectedIDs, c("ENTREZID"))
+  EntrezIDs <- EntrezIDs$ENTREZID
+  listOfSelected[[i]] <- EntrezIDs
+  names(listOfSelected)[i] <- names(listOfTables)[i]
+}
+sapply(listOfSelected, length)
+```
+
+```{r}
+library(org.Hs.eg.db)
+mapped_genes2GO <- mappedkeys(org.Hs.egGO)
+mapped_genes2KEGG <- mappedkeys(org.Hs.egPATH)
+mapped_genes <- union(mapped_genes2GO , mapped_genes2KEGG)
+```
+
+```{r}
+library(ReactomePA)
+
+listOfData <- listOfSelected[1:2]
+comparisonsNames <- names(listOfData)
+universe <- mapped_genes
+
+for (i in 1:length(listOfData)){
+  genesIn <- listOfData[[i]]
+  comparison <- comparisonsNames[i]
+  enrich.result <- enrichPathway(gene = genesIn,
+                                 pvalueCutoff = 0.05,
+                                 readable = T,
+                                 pAdjustMethod = "BH",
+                                 organism = "human",
+                                 universe = universe)
+  
+  cat("##################################")
+  cat("\nComparison: ", comparison,"\n")
+  print(head(enrich.result))
+
+  if (length(rownames(enrich.result@result)) != 0) {
+  write.csv(as.data.frame(enrich.result), 
+             file =paste0("./results/","ReactomePA.Results.",comparison,".csv"), 
+             row.names = FALSE)
+  
+  pdf(file=paste0("./results/","ReactomePABarplot.",comparison,".pdf"))
+    print(barplot(enrich.result, showCategory = 15, font.size = 4, 
+            title = paste0("Reactome Pathway Analysis for ", comparison,". Barplot")))
+  dev.off()
+  
+  pdf(file = paste0("./results/","ReactomePAcnetplot.",comparison,".pdf"))
+    print(cnetplot(enrich.result, categorySize = "geneNum", schowCategory = 15, 
+         vertex.label.cex = 0.75))
+  dev.off()
+  }
+}
+```
+
+```{r}
+cnetplot(enrich.result, categorySize = "geneNum", schowCategory = 15, 
+         vertex.label.cex = 0.75)
+```
+
+```{r}
+enrich.result
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

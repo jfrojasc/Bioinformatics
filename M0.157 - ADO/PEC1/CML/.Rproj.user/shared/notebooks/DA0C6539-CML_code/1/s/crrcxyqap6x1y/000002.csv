@@ -1,0 +1,4 @@
+"0","boxplot(eset_rma, cex.axis=0.5, las=2,  which=""all"", "
+"0","         col = c(rep(""red"", 3), rep(""blue"", 3), rep(""yellow"", 3), rep(""green"", 3)),"
+"0","         xlab=""Red: NI, Blue: NN, Yellow: SI, Green: SN"", ylab= ""Raw Intensity"","
+"0","         main=""Boxplot for arrays intensity: Normalized Data"")"

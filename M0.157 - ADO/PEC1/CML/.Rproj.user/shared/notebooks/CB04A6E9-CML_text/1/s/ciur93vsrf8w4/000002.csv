@@ -1,0 +1,4 @@
+"0","targets <- read.csv2(""./data/targets.csv"", header = TRUE, sep = "";"")"
+"0",""
+"0","# Fixing the name of the first column"
+"0","colnames(targets)[1] = ""file_name"""

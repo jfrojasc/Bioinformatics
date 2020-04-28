@@ -1,0 +1,7 @@
+"0","#library(GEOquery)"
+"0","#"
+"0","#Series_Matrix <- getGEO(""GPL6244"") "
+"0",""
+"0","#[HuGene-1_0-st] Affymetrix Human Gene 1.0 ST Array"
+"0","#library(pd.hugene.1.0.st.v1)"
+"0","#library(hugene10sttranscriptcluster.db)"

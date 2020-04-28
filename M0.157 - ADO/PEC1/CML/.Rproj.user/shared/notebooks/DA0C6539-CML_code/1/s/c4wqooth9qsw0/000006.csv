@@ -1,0 +1,3 @@
+"0","values = pvcaObj$dat"
+"0","new_values = round(values , 3)"
+"0","text(bp,pvcaObj$dat,labels = new_values, pos=3, cex = 0.5)"

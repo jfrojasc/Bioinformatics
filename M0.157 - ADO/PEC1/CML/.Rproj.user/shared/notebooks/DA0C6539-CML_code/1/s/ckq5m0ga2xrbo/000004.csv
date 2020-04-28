@@ -1,0 +1,2 @@
+"0","top_tabs_CMR <- topTable (fit.main, number=nrow(fit.main), coef=""CMR"", adjust=""fdr"")"
+"0","head(top_tabs_CMR)"

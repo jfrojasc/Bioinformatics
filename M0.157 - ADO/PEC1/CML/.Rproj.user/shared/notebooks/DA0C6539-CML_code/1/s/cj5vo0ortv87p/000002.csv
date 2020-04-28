@@ -1,0 +1,30 @@
+"0","library(Biobase)"
+"0","library(oligo)"
+"0","my_targets <-read.AnnotatedDataFrame(file.path(""./data"",""targets.csv""), "
+"0","                                     header = TRUE, row.names = 1, "
+"0","                                     sep="";"") "
+"0","raw_data <- read.celfiles(celFiles, phenoData = my_targets)"
+"1","Reading in : ./data/GSM1058965_B324_H_Gene_1.0_ST_1_RB585-NN_.CEL
+"
+"1","Reading in : ./data/GSM1058966_B325_H_Gene_1.0_ST_2_RB585-NI_.CEL
+"
+"1","Reading in : ./data/GSM1058967_B326_H_Gene_1.0_ST_3_RB585-SN_.CEL
+"
+"1","Reading in : ./data/GSM1058968_B327_H_Gene_1.0_ST_4_RB585-SI_.CEL
+"
+"1","Reading in : ./data/GSM1058969_B328_H_Gene_1.0_ST_5_RB611-NN_.CEL
+"
+"1","Reading in : ./data/GSM1058970_B329_H_Gene_1.0_ST_6_RB611-NI_.CEL
+"
+"1","Reading in : ./data/GSM1058971_B330_H_Gene_1.0_ST_7_RB611-SN_.CEL
+"
+"1","Reading in : ./data/GSM1058972_B331_H_Gene_1.0_ST_8_RB611-SI_.CEL
+"
+"1","Reading in : ./data/GSM1058973_B332_H_Gene_1.0_ST_9_RB626-NN_.CEL
+"
+"1","Reading in : ./data/GSM1058974_B333_H_Gene_1.0_ST_10_RB626-NI_.CEL
+"
+"1","Reading in : ./data/GSM1058975_B334_H_Gene_1.0_ST_11_RB626-SN_.CEL
+"
+"1","Reading in : ./data/GSM1058976_B335_H_Gene_1.0_ST_12_RB626-SI_.CEL
+"

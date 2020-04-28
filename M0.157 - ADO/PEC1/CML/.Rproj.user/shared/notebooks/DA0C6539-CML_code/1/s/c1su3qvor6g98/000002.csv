@@ -1,0 +1,32 @@
+"0","library(org.Hs.eg.db)"
+"2","Loading required package: AnnotationDbi
+"
+"2","Loading required package: stats4
+"
+"2","Loading required package: IRanges
+"
+"2","Loading required package: S4Vectors
+"
+"2","
+Attaching package: ‘S4Vectors’
+
+"
+"2","The following object is masked from ‘package:base’:
+
+    expand.grid
+
+"
+"2","
+Attaching package: ‘IRanges’
+
+"
+"2","The following object is masked from ‘package:grDevices’:
+
+    windows
+
+"
+"2","
+"
+"0","mapped_genes2GO <- mappedkeys(org.Hs.egGO)"
+"0","mapped_genes2KEGG <- mappedkeys(org.Hs.egPATH)"
+"0","mapped_genes <- union(mapped_genes2GO , mapped_genes2KEGG)"

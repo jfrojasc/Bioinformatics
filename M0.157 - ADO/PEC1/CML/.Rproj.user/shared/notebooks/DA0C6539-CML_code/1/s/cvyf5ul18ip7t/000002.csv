@@ -1,0 +1,7 @@
+"0","probesInHeatmap <- rownames(res.selected)"
+"0","HMdata <- exprs(eset_filtered)[rownames(exprs(eset_filtered)) %in% probesInHeatmap,]"
+"0",""
+"0","geneSymbols <- select(hugene10sttranscriptcluster.db, rownames(HMdata), c(""SYMBOL""))"
+"0","SYMBOLS<- geneSymbols$SYMBOL"
+"0","rownames(HMdata) <- SYMBOLS"
+"0","write.csv(HMdata, file = file.path(""./results/data4Heatmap.csv""))"

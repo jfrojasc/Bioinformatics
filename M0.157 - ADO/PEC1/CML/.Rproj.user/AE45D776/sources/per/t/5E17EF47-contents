@@ -1,0 +1,825 @@
+---
+title: "ADO - PEC1 - Informe del análisis"
+author: "José Félix Rojas Cabeza"
+date: "`r format(Sys.time(), '%Y - %B - %d')`"
+output:
+  pdf_document:
+    toc: yes
+  word_document:
+    toc: yes
+  html_document:
+    code_folding: show
+    theme: lumen
+    toc: yes
+    toc_float: yes
+bibliography: referencias.bib
+---
+```{r setup, include=FALSE}
+require(knitr)
+# include this code chunk as-is to set options
+opts_chunk$set(comment = NA, prompt = TRUE, tidy = TRUE, tidy.opts=list(width.cutoff=60), 
+               fig.width = 7, fig.height = 7,echo = FALSE,
+               fig.align='center',
+               message = FALSE, warning = FALSE, cache=TRUE)
+Sys.setlocale("LC_TIME", "C")
+```
+
+```{r echo=FALSE}
+# verifica si un paquete está instalado, si no lo está, lo instala
+# if(!(require(paquete))) install.packages("paquete")
+# if(!(require())) install.packages("")
+# para instalar de bioconductor
+# if(!(require())) BiocManager::install("") 
+
+#if (!requireNamespace("BiocManager", quietly = TRUE))
+#    install.packages("BiocManager")
+#BiocManager::install()
+```
+
+```{r}
+# Instalación de paquetes
+#if(!(require(knitr))) install.packages("knitr")
+#if(!(require(colorspace))) install.packages("colorspace")
+#if(!(require(gplots))) install.packages("gplots")
+#if(!(require(ggrepel))) install.packages("ggrepel")
+#if(!(require(htmlTable))) install.packages("htmlTable")
+#if(!(require(prettydoc))) install.packages("prettydoc")
+#if(!(require(devtools))) install.packages("devtools")
+#if(!(require(BiocManager))) install.packages("BiocManager")
+#if(!(require(Biobase))) install.packages("Biobase")
+#if(!(require(ggplot2))) BiocManager::install("ggplot2")
+#if(!(require(ggrepel))) BiocManager::install("ggrepel")
+#if(!(require(oligo))) BiocManager::install("oligo")
+#if(!(require(pd.mogene.2.1.st))) BiocManager::install("pd.mogene.2.1.st")
+#if(!(require(arrayQualityMetrics))) BiocManager::install("arrayQualityMetrics")
+#if(!(require(pvca))) BiocManager::install("pvca")
+#if(!(require(limma))) BiocManager::install("limma")
+#if(!(require(genefilter))) BiocManager::install("genefilter")
+#if(!(require(annotate))) BiocManager::install("annotate")
+#if(!(require(ReactomePA))) BiocManager::install("ReactomePA")
+#if(!(require(reactome.db))) BiocManager::install("reactome.db")
+#if(!(require(pd.hg.u133.plus.2))) BiocManager::install("pd.hg.u133.plus.2")
+#if(!(require(hgu133plus2.db))) BiocManager::install("hgu133plus2.db")
+#if(!(require(pd.hugene.1.0.st.v1))) BiocManager::install("pd.hugene.1.0.st.v1")
+#if(!(require(hugene10sttranscriptcluster.db))) BiocManager::install("hugene10sttranscriptcluster.db") 
+#if(!(require(org.Hs.eg.db))) BiocManager::install("org.Hs.eg.db") 
+#if(!(require(printr))) {
+#  install.packages(
+#    'printr',
+#    type = 'source',
+#    repos = c('http://yihui.name/xran', 'http://cran.rstudio.com')
+#  )
+#}
+```
+
+```{R}
+#dir.create("data")
+#dir.create("results")
+```
+
+```{R}
+#library(GEOquery)
+#
+#Series_Matrix <- getGEO("GPL6244") 
+
+#[HuGene-1_0-st] Affymetrix Human Gene 1.0 ST Array
+#library(pd.hugene.1.0.st.v1)
+#library(hugene10sttranscriptcluster.db)
+```
+
+```{R}
+#RB585_NN <- getGEO("GSM1058965") #1
+#RB585_NI <- getGEO("GSM1058966") #2
+#RB585_SN <- getGEO("GSM1058967") #3
+#RB585_SI <- getGEO("GSM1058968") #4
+#RB611_NN <- getGEO("GSM1058969") #5
+#RB611_NI <- getGEO("GSM1058970") #6
+#RB611_SN <- getGEO("GSM1058971") #7
+#RB611_SI <- getGEO("GSM1058972") #8
+#RB626_NN <- getGEO("GSM1058973") #9
+#RB626_NI <- getGEO("GSM1058974") #10
+#RB626_SN <- getGEO("GSM1058975") #11
+#RB626_SI <- getGEO("GSM1058976") #12
+```
+
+```{r}
+# Información en los datos GSM
+# Meta(RB585_NN)$platform_id
+# Meta(RB585_NN)$series_id
+# Meta(RB585_NN)$data_row_count
+```
+
+```{r}
+#datos_protocolo <- function(x){
+#c(Meta(x)$extract_protocol,
+#Meta(x)$hyb_protocol,
+#Meta(x)$label_ch1,
+#Meta(x)$label_protocol_ch1,
+#Meta(x)$molecule_ch1)
+#}
+#
+#datos_protocolo(RB585_NN)
+```
+
+# Abstract: 
+Se investigó la expresión diferencial de genes en células CML CD34+ sometidas a dos tratamientos en un modelo 2x2, Se realizó un workflow típico donde se obtuvieron, las listas de los genes diferencialmente expresados por cada tratamiento, volcano plots, un heatmap ordenado de los genes diferencialmente expresados, y mapas de redes. Los datos y el código para el análisis se proporcionan en un repositorio de [github]()
+
+
+# Objetivos:
+Se pretende asimilar, a través de la práctica con un [caso concreto](https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE43225), el proceso de análisis de microarrays siguiendo un workflow de ejemplo para analizar datos de microarrays utilizando paquetes de R y Bioconductor.
+
+Se pretende ubicar los genes diferencialmente expresados que cumplan con:
+\[ FDR < 0.1 \space \land \space log_2|FC| \ge 1\]
+est
+La intención de utilizar FDR es controlar el error tipo I. 
+El Fold Change se utiliza para determinar cuáles son los p valores más bajos.
+
+# Materiales y métodos:
+
+## Datos:
+El conexto del estudio [@zhang2013microenvironmental] es el siguiente: Se estaba investigando una forma de tratar la Leucemia Mieloide Crónica (CML), y la dificultad principal del uso de inhibidores de Tirosina-Linasa (TKI), presentaba dificultades debido a la incapacidad de eliminar Células Madre de Leucemia (LSC). El cocultivo con células estromales mesenquimales (MSC) de médula ósea humana inhibió significativamente la apoptosis y conservó las células madre / progenitoras de CML después de la exposición a TKI, manteniendo la capacidad de formación de colonias y el potencial de injerto en ratones inmunodeficientes.
+El paper presenta que la protección a las LSC opera con la intervención de N-cadherina y Wnt-$\beta$-catenina.
+
+## Microarrays:
+Se extrajo ARN de células CML CD34+ tratadas con o sin imatinib (IM), un inhibidor de Kinasas, y Células Mesenquimales del Estroma (MSC), por 96 horas, amplifcadas, etiquetadas e hibridizadas, a arreglos GeneChip 1.0 (Affymetrix, Santa Clara, CA). Se compararon las interacciones de controles, tratamiento con IM, tratamiento con MSC, y ambos tratamientos, con 3 réplicas cada una. El arreglo (de un color) tenía 33297 sondas. 
+
+## Diseño Experimental:
+Se utilizó regresión lineal para modelar la expresión génica tomando en cuenta un diseño factorial 2x2. 
+
+## Metodología:
+El flujo de trabajo comienzá con los datos sin procesar (archivos binarios .CEL, obtenidos del proceso de hibridación). Los pasos seguidos fueron: lectura de datos sin procesar, control de calidad, normalización, filtrado, selección de genes expresados diferencialmente, y comparación de listas seleccionadas. A pesar de que se requiere en un análisis típico, el paso de análisis de significancia biológica no debería incluirse en este informe. (Ver fig. 1) 
+
+![Figura 1. Proceso del análisis de datos de microarreglos](C:/Users/josef/Documents/R_Docs/M0.157/CML/Images/fig_1.jpg)
+
+[@sanz2019statistical]
+
+Al guardar el archivo como proyecto (`cml.rproj`), los archivos asociados a al proyecto pueden tratarse utilizando la dirección `./` para referirse al archivo donde se ubica el proyecto. Se crearon 2 carpetas `data` y `results` en el directorio "raíz" del proyecto.
+
+# Resultados
+
+El archivo `targets.csv` fue creado de acuerdo con el ejemplo del caso de estudio proporcionado [@git] y tomando en cuenta la guía del usuario de `limma` [@smyth2003limma]. A continuación se puede observar el contenido: 
+
+```{r}
+targets <- read.csv2("./data/targets.csv", header = TRUE, sep = ";")
+
+# Fixing the name of the first column
+colnames(targets)[1] = "file_name"
+```
+
+```{r}
+library(knitr)
+
+# Table
+kable(targets, booktabs = TRUE, caption = "Contenido del archivo `targets.csv` utilizados para este análisis")
+```
+
+### Lectura de archivos `.CEL` 
+
+Para hacer la lectura de los archivos `.CEL` se utilizó las librerías `oligo` y `Biobase`. Además, se debe tomar en cuenta que tienen que instalarse los paquetes requeridos por `R` para ser utilizados. Es recomendable [@git] instalar [Rtools](https://cran.r-project.org/bin/windows/Rtools/) si no se está utilizando linux. 
+
+Los paquetes utilizados son:
+
+
+| Tabla II. Paquetes de R utilizados en el análisis                             |
+|-----------------------|--------------------------------|---------------------|
+| `annotate`            | `ggplot2`                      | `knitr`             |
+| `arrayQualityMetrics` | `ggrepel`                      | `limma`             |
+| `Biobase`             | `ggrepel`                      | `oligo`             |
+| `BiocManager`         | `gplots`                       | `org.Hs.eg.db`      |
+| `devtools`            | `htmltable`                    | `pd.hugene.1.0.st.v1`|           
+| `genefilter`          | `hugene10sttranscriptcluster.db` | `prettydoc`       |               
+| `printr`              | `pvca`                           | `prettydoc`       |
+| `genefilter`          | `reactome.db`                    | `reactomePA`      | 
+
+
+Es importante notar que algunos paquetes requieren el uso de `BiocManager`, de [Bioconductor](http://bioconductor.org/).
+
+```{r warning=FALSE}
+library(oligo)
+celFiles <- list.celfiles("./data", full.names = TRUE)
+```
+
+### Lectura de los archivos `.CEL`
+```{r}
+library(Biobase)
+library(oligo)
+my_targets <-read.AnnotatedDataFrame(file.path("./data","targets.csv"), 
+                                     header = TRUE, row.names = 1, 
+                                     sep=";") 
+raw_data <- read.celfiles(celFiles, phenoData = my_targets)
+```
+
+Posteriormente, se cambian los nombres de filas y columnas del data frame a nombres más convenientes.
+```{r}
+my_targets@data$Short_name->rownames(pData(raw_data))
+#colnames(raw_data) <-rownames(pData(raw_data)) 
+colnames(raw_data) <- targets$short_name 
+
+head(raw_data)
+```
+
+### Control de Calidad de los datos no procesados:
+
+```{r}
+library(arrayQualityMetrics)
+arrayQualityMetrics(raw_data, force = TRUE)
+```
+
+Se comprueba si los datos son suficientemente buenos para la normalización. Este es un paso muy relevante, debido a que datos de mala calidad podrían sesgar el análisis, de forma tal que la normalización sería incapaz de arreglar el problema.
+
+Si alguno de los datos `.CEL` se marca tres veces, debería revisarse detalladamente, para revisar si hay algún problema (Ver fig. 2).  
+
+![Descripción general de metadatos pre-normalización y detección de valores atípicos](C:/Users/josef/Documents/R_Docs/M0.157/CML/Images/fig_2.jpg)
+
+Un análsis de componentes principales (PCA) nos perminte disminuir la dimensionalidad de los datos, y disminuir problemas de colinealidad, debido a que se puede orientar la dirección de la variabilidad máxima con los autovectores, y ubicar puntos extremos que se alejan mucho de la distribución del resto de los datos de una forma sencilla. En el análisis realizado no se observaron outliers (Ver fig. 3).
+
+```{r}
+library(ggplot2)
+library(ggrepel)
+plotPCA3 <- function (datos, labels, factor, title, scale,colores, size = 1.5, glineas = 0.25) {
+  data <- prcomp(t(datos),scale=scale)
+  # plot adjustments
+  data_df <- data.frame(data$x)
+  Group <- factor
+  loads <- round(data$sdev^2/sum(data$sdev^2)*100,1)
+  # main plot
+  p1 <- ggplot(data_df,aes(x=PC1, y=PC2)) +
+    theme_classic() +
+    geom_hline(yintercept = 0, color = "gray70") +
+    geom_vline(xintercept = 0, color = "gray70") +
+    geom_point(aes(color = Group), alpha = 0.55, size = 3) +
+    coord_cartesian(xlim = c(min(data$x[,1])-5,max(data$x[,1])+5)) +
+    scale_fill_discrete(name = "Group")
+  # avoiding labels superposition 
+  p1 + geom_text_repel(aes(y = PC2 + 0.25, label = labels),segment.size = 0.25, size = size) + 
+    labs(x = c(paste("PC1",loads[1],"%")),y=c(paste("PC2",loads[2],"%"))) +  
+    ggtitle(paste("Análisis de Componentes Principales para:",title,sep=" "))+ 
+    theme(plot.title = element_text(hjust = 0.5)) +
+    scale_color_manual(values=colores)
+}
+``` 
+
+```{r include=FALSE}
+plotPCA3(exprs(raw_data), labels = targets$short_name, factor = targets$group, 
+         title="Datos sin Procesar", scale = FALSE, size = 3, 
+         colores = c("red","blue","green","yellow"))
+```
+![PCA para: Datos sin Procesar](C:/Users/josef/Documents/R_Docs/M0.157/CML/Images/fig_2_1.jpg)
+
+El primer componente del PCA explica 40.6% de la variabilidad total de las muestras. Idealmente se observarían patrones claros para explicar la contribución de las condiciones experimentales a la variabilidad. Pero en este caso, no hay una forma clara de observar dichas contribuciones. Lo único que está claro, es que el comportamiento de la interacción (N.MSCplusIM) parece estar más definido que el de los tratamientos individuales.
+
+### Dimensión de los datos sin procesar:
+
+```{r}
+dim(raw_data@assayData[["exprs"]])
+``` 
+
+### Anotación de datos sin procesar:
+
+Indica cuál base de datos debe utilizarse para identificar (anotar) los genes en un momento posterior. Luego de la identificación, la base de datos y la librería (`hugene10sttranscriptcluster.db` y ``r raw_data@annotation``), indicadas en la tabla I fueron instaladas de acuerdo con las instrucciones de Bioconductor.  
+
+Al parecer, aún sin normalización, los datos sin procesar son bastante homogéneos:
+```{r include=FALSE}
+boxplot(raw_data, cex.axis=0.5, las=2,  which="all", 
+         col = c(rep("red", 3), rep("blue", 3), rep("green",3),rep("yellow",3)),
+         ylab= "Raw Intensity",
+         main="Distribución de valores no procesados de intensidad ")
+```
+![Distribución de valores no procesados de intensidad](C:/Users/josef/Documents/R_Docs/M0.157/CML/Images/fig_3.jpg)
+
+### Normalización de datos:
+
+Posteriormente se lleva a cabo la normalización de los datos, que consta de 3 pasos. Se realiza con `rma()`: 
+```{r echo=TRUE}
+eset_rma <- rma(raw_data)
+```
+
+### Control de calidad de los datos normalizados:
+
+```{r}
+library(arrayQualityMetrics)
+arrayQualityMetrics(eset_rma, outdir = file.path("./results", "QCDir.Norm"), force=TRUE)
+```
+
+Nuevamente se revisan los datos para buscar indicios de datos extremos. En este caso no se observan problemas (ver fig. 3).
+
+![Descripción general de metadatos normalizados y detección de valores atípicos](C:/Users/josef/Documents/R_Docs/M0.157/CML/Images/fig_4.jpg)
+
+
+Al realizar un PCA con los datos normalizados (ver fig. 6) se puede observar una clara relación entre el tratamiento con MSC y valores más bajos. Al parecer el tratamiento con IM no causa muchos cambios al comparar con los efectos de los controles (C.NO). Sin embargo, el porcentaje de cambios explicado por los datos normalizados es menor (debido a que la disminución de la variabilidad es muy grande al escalar los datos).
+
+```{r include=FALSE}
+plotPCA3(exprs(eset_rma), labels = targets$short_name, factor = targets$group, 
+         title="Datos Normalizados", scale = FALSE, size = 3, 
+         colores = c("red", "blue", "green", "yellow"))
+``` 
+![PCA para: Datos Normalizados](C:/Users/josef/Documents/R_Docs/M0.157/CML/Images/fig_6.jpg)
+
+Una vez reescalados los datos, se observan pocas diferencias en los mismos. Es importante resaltar que `rma()` incluye un paso ("normalización cuantil"), donde la distribución empírica de todas las muestras se establece en los mismos valores. Como consecuencia, se espera que los diagramas de caja sean idénticos o al menos muy similares [@git] (Ver fig. 7).
+
+```{r include=FALSE}
+boxplot(eset_rma, cex.axis=0.5, las=2,  which="all", 
+         col = c(rep("red", 3), rep("blue", 3), rep("yellow", 3), rep("green", 3)),
+         ylab= "Raw Intensity", main="Boxplot para la intensidad de los microarrays: Datos Normalizados")
+```
+![Boxplot para la intensidad de los microarrays: Datos Normalizados](C:/Users/josef/Documents/R_Docs/M0.157/CML/Images/fig_7.jpg)
+
+### Detección de "Errores de Bache"
+
+Se utilizó la librería `pvca` (Principal Component Variation Analysis) para estimar fuente y proporción de variación, a través de análisis de PCA y posteriormente de análisis de varianza de los componentes [@bushel2013pvca].
+
+Al parecer hay un efecto de bache importante en los datos que tenemos (Ver fig. 8). De existir la posibilidad, se tomaría la opción de investigar en el wet lab si las muestras se procesaron el mismo día. En este caso, no se puede tener la información. Sin embargo, al ser un ejercicio académico, se completará el workflow. 
+
+```{r}
+library(pvca)
+pData(eset_rma) <- targets
+
+pct_threshold <- 0.6
+
+batch.factors <- c("control", "supplement")
+
+pvcaObj <- pvcaBatchAssess (eset_rma, batch.factors, pct_threshold)
+```
+
+```{r include=FALSE}
+bp <- barplot(pvcaObj$dat, xlab = "Efectos",
+  ylab = "Varianza de la proporción promedio ponderada",
+  ylim= c(0,1.1),col = c("lightblue"), las=2,
+  main="Estimación PVCA")
+axis(1, at = bp, labels = pvcaObj$label, cex.axis = 0.55, las=2)
+values = pvcaObj$dat
+new_values = round(values , 3)
+text(bp,pvcaObj$dat,labels = new_values, pos=3, cex = 0.5)
+```
+ 
+![Importancia relativa de los diferentes factores que afectan la expresión génica](C:/Users/josef/Documents/R_Docs/M0.157/CML/Images/fig_8.jpg)
+
+### Detectando los genes más variables:
+
+La cantidad de genes en que estamos haciendo el estudio afecta la selección, a medida que el número de genes aumenta, más es la necesidad de ajustar los p valores, que de no modificarse causarían un error tipo I demasiado alto. 
+
+Si un gen se expresa diferencialmente, esperaríamos que hubiese una diferencia entre los grupos, y que la varianza general del gen sea mayor que la de aquellos que no tienen expresión diferencial. Graficar la variabilidad general de todos los genes nos sirve para decidir qué porcentaje de genes muestra una variabilidad que puede atribuirse a otras causas que no sean variación aleatoria. A continuación se muestran (fig. 9) las desviaciones estándar de todos los genes, ordenadas de menor a mayor. Los genes más variables tienen una desviación por encima de 90-95%.  
+
+```{r  include=FALSE}
+#SD of all samples (all genes) ordered from smallest to largest
+sds  <- apply (exprs(eset_rma), 1, sd)
+sdsO <- sort(sds)
+plot(1:length(sdsO), sdsO, main="Distribución de variabilidad para todos los genes",
+     sub="Las líneas verticales representan los percentiles 90% y 95%",
+     xlab="Índice de genes (de menor a mayor variabilidad)", ylab="Desviación Estándar")
+abline(v=length(sds)*c(0.9,0.95))
+```
+
+![Distribución de variabilidad para todos los genes](C:/Users/josef/Documents/R_Docs/M0.157/CML/Images/fig_9.jpg)
+
+
+### Filtrando los genes menos variables:
+
+Filtrar aquellos genes cuya variabilidad se puede atribuir a la variación aleatoria, es decir, los genes que, razonablemente, no se espera que expresen diferencialmente, ha demostrado ser útil para reducir el número de pruebas que se realizarán con el aumento de potencia correspondiente [@git].
+
+
+```{r}
+# filtering
+library(genefilter)
+library(hugene10sttranscriptcluster.db)
+
+annotation(eset_rma) <- "hugene10sttranscriptcluster.db"
+filtered <- nsFilter(eset_rma, 
+                     require.entrez = TRUE, remove.dupEntrez = TRUE,
+                     var.filter=TRUE, var.func=IQR, var.cutoff=0.75, 
+                     filterByQuantile=TRUE, feature.exclude="^AFFX")
+```
+
+La función `nsFilter()` se utilizó para remover genes basándonos en un umbral de variabilidad. Si contamos con un paquete de anotación (que asocia identificadores de sondas de prueba e identificadores de genes de diferentes bases de datos), puede ser utilizado para remover sondas que no tienen un identificador asociado. 
+
+A continuación se retorna un reporte de los resultados del filtrado. 
+
+```{r}
+#names(filtered)
+#class(filtered$eset)
+```
+
+```{r}
+print(filtered$filter.log)
+eset_filtered <-filtered$eset
+```
+
+En este caso quedan solamente 4705 genes después del filtrado. 
+```{r}
+dim(eset_filtered)
+```
+
+Hay diferencias entre los parámetros de este análisis y los del paper revisado: la varianza que utilizan de cutoff es 0.25, y encontraron 12553 genes luego del filtrado. A continuación se muestran los genes relevantes del análisis de Zhang y colaboradores (ver fig. 10, elaborada por [@zhang2013microenvironmental]).
+
+![Figura 10. Ensayos de microarray de expresión genética en células CML CD34+ cocultivadas con y sin MSCs y con y sin IM](C:/Users/josef/Documents/R_Docs/M0.157/CML/Images/fig_4.jpg)
+
+[@zhang2013microenvironmental]
+
+### Guardando los datos normalizados:
+
+Es conveniente guardar los datos filtrados normalizados, son el punto de partida para futuros análisis, y es posible que deseemos volver a ellos. 
+
+Es habitual guardar los objetos binarios, pero también escribir valores de expresión en archivos de texto o Excel. Escribir en Excel desde R no es una tarea trivial, por extraño que parezca, porque los diferentes paquetes funcionan de manera diferente según el sistema operativo [@git]. Una alternativa puede ser cortar y copiar la información de interés a mano; es importante mencionar que al no utilizar código, el error humano es un factor que debe considerarse.   
+
+```{r echo=TRUE}
+write.csv(exprs(eset_rma), file="./results/normalized.Data.csv")
+write.csv(exprs(eset_filtered), file="./results/normalized.Filtered.Data.csv")
+save(eset_rma, eset_filtered, file="./results/normalized.Data.Rda")
+```
+
+### Definición de la configuración experimental: la matriz de diseño
+
+```{r}
+library(limma)
+design_mat<- model.matrix(~0+group, pData(eset_filtered))
+colnames(design_mat) <- c("C.NO", "N.MSC", "N.MSCplusIM","N.IM")
+print(design_mat)
+```
+
+### Definición de la configuración experimental: la matriz de contraste
+```{r}
+# control is placed first because treatment decreases expression levels
+cont.matrix <- makeContrasts (IM = C.NO - N.IM,
+                              CMR = C.NO - N.MSC,
+                              INT = C.NO - N.MSCplusIM,
+                              levels = design_mat)
+cont.matrix
+```
+
+```{r}
+# Linear model fit
+library(limma)
+fit <- lmFit(eset_filtered, design_mat)
+fit.main <- contrasts.fit(fit, cont.matrix)
+fit.main <- eBayes(fit.main)
+class(fit.main)
+```
+
+### Obtención de listas de genes expresados diferencialmente:
+El paquete `limma` implmenta la función `topTable()`, que contiene una lista de genes ordenados de menor a mayor p valor, que puede ser considerada de los genes más a menos diferencialmente expresados [@git]. 
+
+Los parámetros estadísticos indicados por la función son:
+* `logFC`: diferencia media entre grupos.
+* `AveExpr`: expresión promedio de todos los genes en la comparación.
+* `t`: estadístico t moderado (estadístico similar a la prueba t para comparación).
+* `P.value`: P valor.
+* `adj.P.Val`: valor p ajustado según Benjamini y Hochberg (1995)
+* `B`: estadístico B, es decir, la posibilidad de registro posterior del gen de ser vs no ser diferencial expresado (efecto estadístico).
+
+A continuación se muestran los primeros 6 valores de los genes seleccionados con cada interacción. Recordemos que IM contrasta IM vs Control, CMR contrasta CMR vs Control e INT contrasta IM+CMR vs Control.
+
+#### `topTable(IM)` 
+```{r}
+top_tabs_IM <- topTable (fit.main, number=nrow(fit.main), coef="IM", adjust="fdr") 
+head(top_tabs_IM)
+```
+
+#### `topTable(CMR)` 
+```{r}
+top_tabs_CMR <- topTable (fit.main, number=nrow(fit.main), coef="CMR", adjust="fdr")
+head(top_tabs_CMR)
+```
+
+#### `topTable(INT)` 
+```{r}
+top_tabs_INT  <- topTable (fit.main, number=nrow(fit.main), coef="INT", adjust="fdr") 
+head(top_tabs_INT)
+``` 
+
+
+### Anotación de Genes:
+
+Una vez que se tiene la tabla, debe utilizarse de modo que nos sirva, y para poder entender cuáles genes tenemos necesitamos asociar los identificadores que aparecen en la tabla, generalmente correspondientes a sondas o transcripciones según el tipo de arreglo, con nombres más familiares, como el símbolo del gen, el identificador del gen de Entrez o la descripción del gen: Este proceso es la anotación.
+
+```{r echo=TRUE}
+# Gene Annotation function
+annotatedTopTable <- function(topTab, anotPackage)
+{
+  topTab <- cbind(PROBEID=rownames(topTab), topTab)
+  myProbes <- rownames(topTab)
+  thePackage <- eval(parse(text = anotPackage))
+  geneAnots <- select(thePackage, myProbes, c("SYMBOL", "ENTREZID", "GENENAME"))
+  annotatedTopTab<- merge(x=geneAnots, y=topTab, by.x="PROBEID", by.y="PROBEID")
+return(annotatedTopTab)
+}
+```
+
+Esta función permite la asociación de el paquete de anotación (`hugene10sttranscriptcluster.db` en este caso) con las salidas de `topTabs()` y retornar la información en un formato inteligible. Nótese que se incluye el símbolo, la ID de Entrez y el nombre del gen entre los datos de anotación.  
+
+```{r}
+library(hugene10sttranscriptcluster.db)
+top_annotated_IM <- annotatedTopTable(top_tabs_IM,anotPackage="hugene10sttranscriptcluster.db")
+
+top_annotated_CMR <- annotatedTopTable(top_tabs_CMR,anotPackage="hugene10sttranscriptcluster.db")
+
+top_annotated_INT <- annotatedTopTable(top_tabs_INT,anotPackage="hugene10sttranscriptcluster.db")
+
+write.csv(top_annotated_IM, file="./results/top_annotated_IM.csv")
+
+write.csv(top_annotated_CMR, file="./results/top_annotated_CMR.csv")
+
+write.csv(top_annotated_INT, file="./results/top_annotated_INT.csv")
+```
+
+Una vez anotada, la tabla es más comprensible. Nótese el ejemplo bajo éstas líneas, donde se muestran las primeras 4 columnas del registro creado para IM. También podemos relacionar el ProbeID con el Gen.
+
+```{r echo=FALSE}
+short<- head(top_annotated_IM[1:5,1:4])
+# library(kableExtra)
+# knitr::kable(
+#   short, booktabs = TRUE,
+#   caption = 'Annotations added to results "topTable" for the comparison "MvsWT"'
+# )
+show(short)
+```
+
+### Visualización de genes expresados diferencialmente:
+
+A continación se mostrarán "Volcano Plots": son un tipo de diagrama de dispersión que muestra significancia estadística (valor P) versus magnitud de cambio (Fold Change). Permite la identificación visual rápida de genes con grandes cambios de expresión que también son estadísticamente significativos. Es muy posible que sean los genes biológicamente más significativos. En las figuras a continuación se muestran los genes con menor P valor y diferencialmente expresados para cada contraste realizado, en cada mapa se destacan los genes con menor $-log_{10}(p valor)$ y $log_2|FC|\ge 1$ (Ver figs 11, 12, 13).
+
+```{r include=FALSE}
+# Volcano Plot
+library(hugene10sttranscriptcluster.db)
+gene_symbols <- select(hugene10sttranscriptcluster.db, rownames(fit.main), c("SYMBOL"))
+SYMBOLS <- gene_symbols$SYMBOL
+volcanoplot(fit.main, coef=1, highlight=8, names=SYMBOLS, 
+            main=paste("Genes Expresados Diferencialmente", 
+                       colnames(cont.matrix)[1], sep="\n"))
+  abline(v=c(-1,1))
+```
+
+![Volcano plot para IM](C:/Users/josef/Documents/R_Docs/M0.157/CML/Images/fig_11.jpg)
+
+```{r include=FALSE}
+# Volcano Plot
+library(hugene10sttranscriptcluster.db)
+gene_symbols <- select(hugene10sttranscriptcluster.db, rownames(fit.main), c("SYMBOL"))
+SYMBOLS <- gene_symbols$SYMBOL
+volcanoplot(fit.main, coef=2, highlight=1, names=SYMBOLS, 
+            main=paste("Genes Expresados Diferencialmente", 
+                       colnames(cont.matrix)[2], sep="\n"))
+  abline(v=c(-1,1))
+```
+
+![Volcano plot para CMR](C:/Users/josef/Documents/R_Docs/M0.157/CML/Images/fig_12.jpg)
+
+```{r include=FALSE}
+# Volcano Plot
+library(hugene10sttranscriptcluster.db)
+gene_symbols <- select(hugene10sttranscriptcluster.db, rownames(fit.main), c("SYMBOL"))
+SYMBOLS <- gene_symbols$SYMBOL
+volcanoplot(fit.main, coef=3, highlight=6, names=SYMBOLS, 
+            main=paste("Genes Expresados Diferencialmente", 
+                       colnames(cont.matrix)[3], sep="\n"))
+  abline(v=c(-1,1))
+```
+
+![Volcano plot para CMR+IM (INT)](C:/Users/josef/Documents/R_Docs/M0.157/CML/Images/fig_13.jpg)
+
+### Comparaciones múltiples:
+
+Generalmente, es interesante saber cuáles genes se han seleccionado en cada comparación. en este caso, los genes biológicamente relevantes son aquellos que se seleccionaron en cada contraste especifico. 
+
+```{r}
+# Decide Tests
+library(limma)
+res<-decideTests(fit.main, method="separate", adjust.method="fdr", p.value=0.1, lfc=1)
+```
+
+```{r}
+sum.res.rows<-apply(abs(res),1,sum)
+res.selected<-res[sum.res.rows!=0,] 
+print(summary(res))
+```
+
+A continuación, se muestra un diagrama de Venn que representa el número de genes expresados diferencialmente en cada comparación, con un punto de corte dado ($-log_{10}(p valor)$ y $log_2|FC|\ge 1$). Es importante destacar que debido al diseño experimental, El tratamiento con la interacción estaba en 3 viales, lo que causa que la intersección de los 3 tratamientos sea 0.
+
+```{r include=FALSE}
+vennDiagram (res.selected[,1:3], cex=0.9)
+title("Genes en común entre las comparaciones\n Genes seleccionados con FDR < 0.1 t logFC > 1")
+```
+
+![Genes en común entre las 3 comparaciones](C:/Users/josef/Documents/R_Docs/M0.157/CML/Images/fig_14.jpg)
+
+### Heatmaps:
+
+Este tipo de gráfico nos permite ver los niveles de expresión de distintos genes en diferentes tratamientos. En este análsis mostraremos sólamente 1 heatmap considerando los genes agrupados se puede notar que en general, los tratamientos con IM y los Controles dan resultados más bajos de expresión, con la excepción del gen PRG3, y AIF1 en caso de los controles y el tratamiento combinado. (Ver fig. 15).
+
+```{r}
+#probesInHeatmap <- rownames(res.selected)
+#HMdata <- exprs(eset_filtered)[rownames(exprs(eset_filtered)) %in% probesInHeatmap,]
+
+#geneSymbols <- select(hugene10sttranscriptcluster.db, rownames(HMdata), c("SYMBOL"))
+#SYMBOLS<- geneSymbols$SYMBOL
+#rownames(HMdata) <- SYMBOLS
+#write.csv(HMdata, file = file.path("./results/data4Heatmap.csv"))
+```
+
+```{r}
+#my_palette <- colorRampPalette(c("gray100", "lightblue"))(n = 14)
+#library(gplots)
+
+#heatmap.2(HMdata,
+#          Rowv = FALSE,
+#          Colv = FALSE,
+#          main = "Genes diferencialmente expresados \n FDR < 0,1, logFC >=1",
+#          scale = "row",
+#          col = my_palette,
+#          sepcolor = "white",
+#          sepwidth = c(0.05,0.05),
+#          cexRow = 0.5,
+#          cexCol = 0.9,
+#          key = TRUE,
+#          keysize = 1.5,
+#          density.info = "histogram",
+#          ColSideColors = c(rep("red",3),rep("blue",3), rep("green", 3),rep("yellow", 3)),
+#          tracecol = NULL,
+#          dendrogram = "none",
+#          srtCol = 30)
+```
+
+
+```{r}
+#probesInHeatmap <- rownames(res.selected)
+#HMdata <- exprs(eset_filtered)[rownames(exprs(eset_filtered)) %in% probesInHeatmap,]
+
+#geneSymbols <- select(hugene10sttranscriptcluster.db, rownames(HMdata), c("SYMBOL"))
+#SYMBOLS<- geneSymbols$SYMBOL
+#rownames(HMdata) <- SYMBOLS
+#write.csv(HMdata, file = file.path("./results/data4Heatmap.csv"))
+```
+
+```{r}
+#my_palette <- colorRampPalette(c("gray100", "lightblue"))(n = 299)
+#library(gplots)
+
+#heatmap.2(HMdata,
+#          Rowv = FALSE,
+#          Colv = FALSE,
+#          main = "Genes diferencialmente expresados \n FDR < 0,1, logFC >=1",
+#          scale = "row",
+#          col = my_palette,
+#          sepcolor = "white",
+#          sepwidth = c(0.05,0.05),
+#          cexRow = 0.5,
+#          cexCol = 0.9,
+#          key = TRUE,
+#          keysize = 1.5,
+#          density.info = "histogram",
+#          ColSideColors = c(rep("red",3),rep("blue",3), rep("green",3), rep("yellow",3)),
+#          tracecol = NULL,
+#          dendrogram = "none",
+#          srtCol = 30)
+```
+
+```{r include=FALSE}
+my_palette <- colorRampPalette(c("red4", "white","royalblue4"))(n = 299)
+probesInHeatmap <- rownames(res.selected)
+HMdata <- exprs(eset_filtered)[rownames(exprs(eset_filtered)) %in% probesInHeatmap,]
+#library(gplots)
+# vector de colores anterior c("gray100", "lightblue")
+
+library(gplots)
+heatmap.2(HMdata,
+          Rowv = TRUE,
+          Colv = TRUE,
+          dendrogram = "both",
+          main = "Genes diferencialmente expresados \n FDR < 0,1, logFC >=1",
+          scale = "row",
+          col = my_palette,
+          sepcolor = "white",
+          sepwidth = c(0.05,0.05),
+          cexRow = 0.8, # original 0.5
+          cexCol = 0.9,
+          key = TRUE,
+          keysize = 1,
+          density.info = "histogram",
+          ColSideColors = c(rep("red",3),rep("blue",3), rep("green",3), rep("yellow",3)),
+          tracecol = NULL,
+          srtCol = 30)
+
+```
+
+![Genes diferencialmente expresados, agrupados](C:/Users/josef/Documents/R_Docs/M0.157/CML/Images/fig_15.jpg)
+
+### Significado biológico de los resultados
+
+La cantidad de genes de interés por tratamiento se resume a continuación. 
+```{r}
+listOfTables <- list(IM = top_tabs_IM,
+                     CMR = top_tabs_CMR,
+                     INT = top_tabs_INT)
+
+listOfSelected <- list()
+for (i in 1:length(listOfTables)){
+  # select the toptable
+  topTab <- listOfTables[[i]]
+  # select the genes to be included in the analysis
+  whichGenes<-topTab["adj.P.Val"]<0.15
+  selectedIDs <- rownames(topTab)[whichGenes]
+  # convert the ID to Entrez
+  EntrezIDs<- select(hugene10sttranscriptcluster.db, selectedIDs, c("ENTREZID"))
+  EntrezIDs <- EntrezIDs$ENTREZID
+  listOfSelected[[i]] <- EntrezIDs
+  names(listOfSelected)[i] <- names(listOfTables)[i]
+}
+sapply(listOfSelected, length)
+```
+
+```{r}
+library(org.Hs.eg.db)
+mapped_genes2GO <- mappedkeys(org.Hs.egGO)
+mapped_genes2KEGG <- mappedkeys(org.Hs.egPATH)
+mapped_genes <- union(mapped_genes2GO , mapped_genes2KEGG)
+```
+
+```{r include=FALSE}
+library(ReactomePA)
+
+listOfData <- listOfSelected[1:2]
+comparisonsNames <- names(listOfData)
+universe <- mapped_genes
+
+for (i in 1:length(listOfData)){
+  genesIn <- listOfData[[i]]
+  comparison <- comparisonsNames[i]
+  enrich.result <- enrichPathway(gene = genesIn,
+                                 pvalueCutoff = 0.05,
+                                 readable = T,
+                                 pAdjustMethod = "BH",
+                                 organism = "human",
+                                 universe = universe)
+  
+  cat("##################################")
+  cat("\nComparison: ", comparison,"\n")
+  print(head(enrich.result))
+
+  if (length(rownames(enrich.result@result)) != 0) {
+  write.csv(as.data.frame(enrich.result), 
+             file =paste0("./results/","ReactomePA.Results.",comparison,".csv"), 
+             row.names = FALSE)
+  
+  pdf(file=paste0("./results/","ReactomePABarplot.",comparison,".pdf"))
+    print(barplot(enrich.result, showCategory = 15, font.size = 4, 
+            title = paste0("Reactome Pathway Analysis for ", comparison,". Barplot")))
+  dev.off()
+  
+  pdf(file = paste0("./results/","ReactomePAcnetplot.",comparison,".pdf"))
+    print(cnetplot(enrich.result, categorySize = "geneNum", schowCategory = 15, 
+         vertex.label.cex = 0.75))
+  dev.off()
+  }
+}
+```
+
+```{r include=FALSE}
+cnetplot(enrich.result, categorySize = "geneNum", showCategory = 15, 
+         vertex.label.cex = 0.75)
+```
+![Mapa de red de interacción con CMR](C:/Users/josef/Documents/R_Docs/M0.157/CML/Images/fig_16.jpg)
+
+![Mapa de red de interacción con IM](C:/Users/josef/Documents/R_Docs/M0.157/CML/Images/fig_17.jpg)
+
+# Discusión
+
+Las limitaciones principales del análisis fueron: 
+
+* Falta de información de la fecha de los análisis para determinar si hubo batch effect.
+
+* Los resultados obtenidos fueron distintos a los del paper. También es cierto que desde 2013 se han actualizado las bases de datos sobre genes humanos y que lo más posible es que de utilizarse el mismo cutoff se obtendría un numero mayor. Sería interesante investigar si la cantidad de genes únicos se mantiene. 
+
+* En general, se utilizó el formato: `if(!(require(package))) install.packages("package")` o
+`if(!(require(package))) BiocManager::install("package")` para instalar paquetes, pero en el caso de las bases de datos, no se realizó la instalación con ese comando, tuvo que utilizarse la instalación directa. 
+
+* No encontré forma de obtener un mapa de la interacción (CMR+IM), sin embargo queda un registro de los genes involucrados. Tomando en cuenta que CMR tenía sólo un gen, es posible que la intersección diese vacío. 
+
+# Conclusión
+* Esta parte del trabajo no es requerimiento. 
+
+* A pesar de que R viene sin garantías, y que a veces puede haber falta de compatiblidad, la documentación es muy completa, y casi cualquier duda puede solventarse a través de la consulta de páginas web: [documentación R](https://www.rdocumentation.org/) - [documentación Bioconductor](https://www.bioconductor.org/) y foros en línea. La presencia de una comunidad muy extensa es ventajosa a la hora de buscar cómo solventar un problema. 
+
+
+# Referencias
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

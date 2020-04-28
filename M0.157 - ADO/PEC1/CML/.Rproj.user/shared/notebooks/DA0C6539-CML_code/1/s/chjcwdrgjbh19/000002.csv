@@ -1,0 +1,6 @@
+"0","#SD of all samples (all genes) ordered from smallest to largest"
+"0","sds  <- apply (exprs(eset_rma), 1, sd)"
+"0","sdsO <- sort(sds)"
+"0","plot(1:length(sdsO), sdsO, main=""Distribution of variability for all genes"","
+"0","     sub=""Vertical lines represent 90% and 95% percentiles"","
+"0","     xlab=""Gene index (from least to most variable)"", ylab=""Standard deviation"")"

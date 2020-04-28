@@ -1,0 +1,8 @@
+"0","library(pvca)"
+"0","pData(eset_rma) <- targets"
+"0",""
+"0","pct_threshold <- 0.6"
+"0",""
+"0","batch.factors <- c(""control"", ""supplement"")"
+"0",""
+"0","pvcaObj <- pvcaBatchAssess (eset_rma, batch.factors, pct_threshold)"

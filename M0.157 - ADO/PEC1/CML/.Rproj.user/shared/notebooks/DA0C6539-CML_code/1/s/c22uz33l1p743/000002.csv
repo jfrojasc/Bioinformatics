@@ -1,0 +1,7 @@
+"0","# Volcano Plot"
+"0","library(hugene10sttranscriptcluster.db)"
+"0","gene_symbols <- select(hugene10sttranscriptcluster.db, rownames(fit.main), c(""SYMBOL""))"
+"0","SYMBOLS <- gene_symbols$SYMBOL"
+"0","volcanoplot(fit.main, coef=1, highlight=4, names=SYMBOLS, "
+"0","            main=paste(""Differentially expressed genes"", "
+"0","                       colnames(cont.matrix)[1], sep=""\n""))"

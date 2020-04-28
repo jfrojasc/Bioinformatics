@@ -1,0 +1,4 @@
+"0","boxplot(raw_data, cex.axis=0.5, las=2,  which=""all"", "
+"0","         col = c(rep(""red"", 3), rep(""blue"", 3), rep(""green"",3),rep(""yellow"",3)),"
+"0","         ylab= ""Raw Intensity"","
+"0","         main=""Distribución de valores no procesados de intensidad "")"

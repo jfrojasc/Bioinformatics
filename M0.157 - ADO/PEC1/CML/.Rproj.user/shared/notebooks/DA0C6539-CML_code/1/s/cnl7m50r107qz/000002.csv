@@ -1,0 +1,2 @@
+"0","library(arrayQualityMetrics)"
+"0","arrayQualityMetrics(eset_rma, outdir = file.path(""./results"", ""QCDir.Norm""), force=TRUE)"

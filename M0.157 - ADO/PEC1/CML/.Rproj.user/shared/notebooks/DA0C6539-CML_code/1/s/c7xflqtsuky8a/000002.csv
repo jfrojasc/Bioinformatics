@@ -1,0 +1,3 @@
+"0","plotPCA3(exprs(raw_data), labels = targets$short_name, factor = targets$group, "
+"0","         title=""Raw data"", scale = FALSE, size = 3, "
+"0","         colores = c(""red"",""blue"",""green"",""yellow""))"

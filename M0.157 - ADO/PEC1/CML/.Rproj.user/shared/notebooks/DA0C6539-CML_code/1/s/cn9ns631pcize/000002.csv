@@ -1,0 +1,2 @@
+"0","top_tabs_IM <- topTable (fit.main, number=nrow(fit.main), coef=""IM"", adjust=""fdr"") "
+"0","head(top_tabs_IM)"

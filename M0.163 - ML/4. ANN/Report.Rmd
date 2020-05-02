@@ -1,0 +1,334 @@
+---
+title: "5. ANN"
+author: "José Félix Rojas Cabeza"
+subtitle: "Predicción de la malignidad/benignidad de cáncer de mama"
+date: "`r format(Sys.time(), '%d de %B de %Y')`"
+output: 
+  html_document:
+    code_folding: show
+    theme: lumen
+    toc: yes
+    toc_float: yes
+  word_document:
+    toc: yes
+  pdf_document:
+    toc: yes
+params:
+  data: "./Data/BreastCancer2.csv"
+  ptrain: 0.6666667
+  seed_train: 12345
+  seed_neuralnet: 1234567
+bibliography: referencias.bib
+---
+
+```{r setup, include=FALSE}
+require(knitr)
+# include this code chunk as-is to set options
+opts_chunk$set(comment = NA, prompt = TRUE, tidy = FALSE, 
+               fig.width = 7, fig.height = 7,echo = TRUE,
+               fig.align='center',
+               message = FALSE, warning = FALSE, cache=TRUE)
+Sys.setlocale("LC_TIME", "C")
+```
+
+```{r, echo=FALSE}
+htmltools::img(src = knitr::image_uri( "logo_uoc_petit.png"), 
+               alt = 'logo UOC', 
+               style = 'position:absolute; top:0; right:0; padding:10px;')
+```
+
+# Algoritmo Red Neuronal Artificial (ANN)
+
+Las redes neuronales artificiales están inspiradas en las redes neuronales como las que tiene el cerebro. Las neuronas se sustituyen por nodos que reciben y envian señales (información). Se crea una red con diferentes nodos y capas interconectados para procesar la información. Cada capa esta formada por un grupo de nodos que transmite la información a los otros nodos de las capas siguientes. <br />
+
+Una red neuronal artificial se caracteriza por:<br />
+
+* La topología: Esto corresponde al número de capas y de nodos. Además de la dirección en que se la información pasa de un nodo al siguiente, dentro de capas o entre capas.<br />
+
+* La función de activación: Función que recibe un conjunto de entradas e integra la señales para transmitir la información a otro nodo.<br />
+
+* El algoritmo de entrenamiento: Establece la importancia de cada conexión para transmitir o no la señal a los nodos correspondientes. El más usado es el algoritmo “backpropagation”. El nombre indica que para corregir los errores de predicción va hacia atras de la red corrigiendo los pesos de los nodos.<br />
+
+Las fortalezas y debilidades de este algoritmo son:<br />
+
+```{r echo=FALSE}
+fortalezas <- c("Se puede adaptar a problemas de clasificación o predicción numérica",
+                "Capaz de modelar patrones más complejos que casi cualquier algoritmo",
+                "Hace pocas suposiciones sobre las relaciones subyacentes de los datos")
+
+debilidades <- c("Extremadamente intenso computacionalmente. Lento para entrenar,particularmente si la topología de la red es compleja","Muy propenso a sobreajustar los datos de entrenamiento","Resulta en un modelo de caja negra compleja que es difícil,si no imposible, de interpretar")
+
+datos <- cbind(fortalezas, debilidades)
+kable(datos, col.names = c("Fortalezas",  "Debilidades"), 
+      align = c("l", "l", "l"), caption = "fortalezas y debilidades de algoritmo ANN")
+```
+
+# Diagnóstico de cáncer de mama a partir de distintas variables biológicas
+
+## 1. Obtención de los datos:
+```{r}
+data <- read.csv(params$data)
+```
+
+## 2. Exploración y preparación de datos
+
+```{r}
+dim(data)
+table(is.na(data))
+```
+```{r}
+str(data)
+summary(data)
+```
+
+El archivo tiene `r dim(data)[1]` observaciones y `r dim(data)[2]` variables. Se observa que no hay datos faltantes, por lo que no hay que ajustar `data`. Los datos son numéricos, posiblmente enteros, excepto en el caso de la última columna (Clase), que tiene dos factores. A continuación se presenta la distribución de los datos en un boxplot (fig. 1 y 2):
+
+```{r}
+par(mar=c(7,2,1,1))
+
+boxplot(data[,1:9], las=2, col="lightblue", main="Figura 1.- Boxplot de las variables")
+abline(h=5, col="red")
+```
+
+```{r}
+plot(data$Class, xlab = colnames(data$Class), main = "Figura 2.- gráfico de barras de Class")
+```
+
+## 3. Normalización de los datos:
+
+Los datos numéricos deben normalizarse para que tomen valores entre 0 y 1. Se define la función `normalize()` de acuerdo con la literatura [@lantz2013machine] 
+
+```{r}
+normalize <- function(x) {
+return ((x - min(x)) / (max(x) - min(x)))
+}
+
+data_norm <- as.data.frame(lapply(data[,-10], normalize))
+
+# confirmación de rangos normalizados
+summary(data_norm)
+```
+
+### Creación de variables:
+
+Se crean tantas variables binarias como tenga la variable `Class`
+```{r}
+# Variables binarias que sustituirán a la variable factor:
+data_norm$M <- data$Class=="malignant"
+data_norm$B <- data$Class=="benign" 
+```
+
+Resumen de `data_norm`:
+```{r}
+summary(data_norm)
+```
+
+Nótese que las variables numéricas no han cambiado su distribución, y que la normalización solamente ha escalado los valores (incluyendo la línea que marca el punto medio de los valores posibles, que se coloca en rojo para facilidad de interpretación de la información gráfica):
+```{r}
+par(mar=c(7,2.5,1,1))
+
+boxplot(data_norm[,1:9], las=2, col="lightblue", main="Figura 3.- Boxplot de las variables normalizadas")
+abline(h=0.5, col="red")
+```
+
+## 3. Preparación de los datos - Creando datasets de entrenamiento y de prueba.
+
+Se crean los data sets de entrenamiento (train) y prueba (test):
+
+```{r}
+n <- nrow(data_norm)
+n_train <- params$ptrain
+set.seed(params$seed_train)
+
+train <- sample(n, floor(n*n_train))
+
+data_norm_train <- data_norm[train,]
+data_norm_test <- data_norm[-train,] # quita las columnas seleccionadas en train
+```
+
+Se toman `r round(n_train*100,2)`%  de las observaciones (`r length(train)`) para entrenar al modelo, y se guardan las otras (`r n-length(train)`) para evaluar el desempeño. Nótese que se tienen 11 variables porque se dividió `Class` en `B` y `M`
+
+```{r}
+dim(data_norm_train)
+dim(data_norm_test)
+```
+
+## 4.- Entrenamiento del modelo en los datos
+
+Para construir la red neuronal se utiliza la función `neuralnet()`, del paquete homónimo.
+
+### 4.1.- Una neurona escondida
+```{r}
+if(!(require(neuralnet))) install.packages("neuralnet") 
+if(!(require(NeuralNetTools))) install.packages("NeuralNetTools") 
+set.seed(params$seed_neuralnet)
+
+library(neuralnet)
+library(NeuralNetTools)
+
+frmla = M+B ~ Cl.thickness+Cell.size+Cell.shape+Marg.adhesion+Epith.c.size+
+                Bare.nuclei+Bl.cromatin+Normal.nucleoli+Mitoses
+
+# una sóla neurona escondida
+data_model_1 <- neuralnet(frmla, data=data_norm_train, hidden=1, linear.output = F)
+
+
+plot(data_model_1, rep = "best")
+```
+
+```{r fig.width=13, fig.height=10}
+# Hay que cambiar el tamaño de foto para que no corte los nombres!
+plotnet(data_model_1)
+```
+
+### 4.2.- Tres neuronas escondidas
+```{r}
+# tres neuronas escondidas
+data_model_3 <- neuralnet(frmla, data=data_norm_train, hidden=3, linear.output = F)
+
+plot(data_model_3, rep = "best")
+```
+
+
+```{r fig.width=13, fig.height=10}
+plotnet(data_model_3)
+``` 
+
+## 5. Evaluación del desempeño del modelo
+
+Luego de obtenidos los modelos, evaluamos su rendimiento con `data_train_test` utilizando la función `predict.nn()` 
+
+### 5.1 Matriz de confusión del modelo con 1 nodo
+```{r}
+library(neuralnet)
+# debido a que se descontinuó compute() traté de utilizar predict.nn, 
+# pero no pude hacerlo de esa manera
+model_result_1 <- compute(data_model_1, data_norm_test[, 1:9])
+```
+
+```{r}
+library(neuralnet)
+model_result_1n.r <- model_result_1$net.result
+
+max_idx <- function(X) {
+  return(which(X == max(X) ) )
+}
+
+# index
+idx_1 <- apply(model_result_1n.r, 1, max_idx)
+pred_1 <- c("malignant", "benign")[idx_1]
+res_1 <- table(pred_1, data$Class[-train])
+```
+
+```{r}
+if(!(require(caret))) install.packages("caret") 
+set.seed(params$seed_neuralnet)
+require(caret)
+c_mat1 <- confusionMatrix(res_1, positive="malignant")
+c_mat1
+```
+
+El modelo con 1 nodo oculto obtiene una precisión de 1 `r c_mat1$overall[1]*100`%, y una sensitividad y especificidad de `r c_mat1$byClass[1]*100`% y `r c_mat1$byClass[2]*100`% respectivamente. 
+
+### 5.2 Matriz de confusión del modelo con 3 nodos
+```{r}
+require(neuralnet)
+model_result_3 <- compute(data_model_3, data_norm_test[,1:9])
+```
+
+```{r}
+require(neuralnet)
+model_result_3n.r <- model_result_3$net.result
+
+idx_3 <- apply(model_result_3n.r, 1, max_idx)
+pred_3 <- c("malignant", "benign")[idx_3]
+res_3 <- table(pred_3, data$Class[-train])
+```
+
+```{r}
+require(caret)
+c_mat3 <- confusionMatrix(res_3, positive="malignant")
+c_mat3
+```
+
+```{r}
+c_mat1$byClass[1]
+```
+
+### 5.3 Comentarios finales
+El modelo obtenido con un solo nodo obtiene mayor precisión. Si el desempeño de dos modelos es similar, es recomendable utilizar el modelo más sencillo [@lantz2013machine]. Al parecer, también hay una relación entre la complejidad del modelo y el sobreajuste. 
+
+## 6. Paquete `caret`
+La función `nnet()` admite datos de tipo factor, por lo que no debemos transformar `Class` en variables binarias. También se puede utilizar `createDataPartition()` para crear los datos de entrenamiento y de prueba. 
+
+El primer comando crea los índices para tomar las muestras. El 2do toma los datos normalizados y los une por columna en un data set, y el tercero crea los data sets de entrenamiento y prueba.  
+```{r}
+if(!(require(caret))) install.packages("caret") 
+set.seed(params$seed_train)
+idx_train <- createDataPartition(y=data$Class, p=params$ptrain, list=F)
+dim(idx_train)
+```
+
+```{r}
+c_nrm <- cbind(data_norm[,1:9], Class=data[,10])
+dim(c_nrm)
+```
+
+```{r}
+c_train <- c_nrm[idx_train,]
+c_test <- c_nrm[-idx_train,]
+dim(c_train)
+dim(c_test)
+```
+
+```{r}
+library(caret)
+c_model <- caret::train(Class ~ ., c_train, method="nnet", 
+                 trControl=trainControl(method="none"),
+                 tuneGrid=NULL, tuneLength=1, trace=F)
+
+
+```
+
+```{r fig.width=13, fig.height=10}
+plotnet(c_model)
+```
+
+```{r}
+summary(c_model)
+```
+
+```{r}
+library(caret)
+# Si se coloca type="prob" en las opciones,
+# retorna la probabilidad para cada clase
+
+c_pred <- predict(c_model, c_test[-10])
+table(c_pred, c_test$Class)
+```
+
+### 6.1.- 5 fold crossvalidation
+```{r}
+cv_model <- caret::train(Class ~ ., c_train, method="nnet", 
+                 trControl=trainControl(method="cv"),
+                 tuneGrid=NULL, tuneLength=1, trace=F)
+
+```
+
+```{r fig.width=13, fig.height=10}
+plotnet(cv_model)
+```
+
+```{r}
+summary(cv_model)
+```
+
+```{r}
+# Si se coloca type="prob" en las opciones,
+# retorna la probabilidad para cada clase
+
+cv_pred <- predict(cv_model, c_test[-10])
+table(cv_pred, c_test$Class)
+```
+
+# Referencias

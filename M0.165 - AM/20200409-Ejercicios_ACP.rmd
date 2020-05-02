@@ -1,0 +1,135 @@
+---
+title: "20200409-Ejercicios_ACP"
+author: "José Félix Rojas Cabeza"
+date: "4/9/2020"
+output:
+  html_document:
+    code_folding: show
+    theme: lumen
+    toc: yes
+    toc_float: yes
+  word_document:
+    toc: yes
+  pdf_document:
+    toc: yes
+---
+
+```{r setup, include=FALSE}
+require(knitr)
+# include this code chunk as-is to set options
+opts_chunk$set(comment = NA, prompt = TRUE, tidy = FALSE, 
+               fig.width = 7, fig.height = 7,echo = TRUE,
+               fig.align='center',
+               message = FALSE, warning = FALSE, cache=TRUE)
+Sys.setlocale("LC_TIME", "C")
+```
+
+1. Sea x un vector aleatorio que sigue una distribución normal bivariante de media cero y matriz de covarianzas
+
+\[ \Sigma = \left(\begin{array}{cc}8 & 5\\5 & 4\end{array}\right) \]
+
+a) Escribir la función de densidad $f(x_1, x_2)$ del vector x y representarla en tres dimensiones.
+
+b) Realizar un análisis de componentes principales de x.
+
+c) Dibujar un gráfico de curvas de nivel de la función de densidad en el cuadrado $[−6,6]×[−6, 6]$ con la función `contour(x,y,z)` de R. Añadir a este gráfico los vectores de las componentes principales con la función `arrows()` y explicar el resultado.
+
+```{r}
+# Primera forma:
+
+library(MASS)
+# lets first simulate a bivariate normal sample
+bivn <- mvrnorm(1000, mu = c(0, 0), Sigma = matrix(c(8, 5, 5, 4), 2))
+# now we do a kernel density estimate
+bivn.kde <- kde2d(bivn[,1], bivn[,2], n = 50)
+# perspective
+persp(bivn.kde, xlab="x", ylab="y", zlab="z", phi = 20, theta = 20)
+# fancy contour with image
+image(bivn.kde); contour(bivn.kde, add = T)
+```
+
+```{r fig.width=10, fig.height= 10}
+set.seed(123) # allows results to be reproducible
+mu_1 <- 0
+mu_2 <- 0
+s_11 <- 8
+s_12 <- 5
+s_22 <- 4  
+
+x1<-sort(rnorm(100, 0, 8)) # generating the vector series x1
+x2<-sort(rnorm(100, 0, 4)) # generating the vector series x1 
+
+corr <- cor.test(x=x1, y=x2, method = c("pearson") )
+
+rho <- corr$estimate
+
+f <- function(x1, x2){
+  term1<- 1/(2*pi*sqrt(s_11*s_22*(1-rho^2)))
+  term2<- -1/(2*(1-rho^2))
+  term3<- (x1-mu_1)^2/s_11
+  term4<- (x2-mu_2)^2/s_22
+  term5<- 2*rho*((x1-mu_1)*(x2-mu_2))/(sqrt(s_11)*sqrt(s_22))
+  term1*exp(term2*(term3+term4-term5))
+} #multivariate density function
+  
+z <- outer(x1, x2, f) # Calculates density
+
+
+persp(x1,x2, z, main="Distribución normal bidimensional",
+sub=expression(italic(f)~(bold(x))==frac(1,2~pi~sqrt(sigma[11]~
+sigma[22]~(1-rho^2)))~phantom(0)^bold(.)~exp~bgroup("{",
+list(-frac(1,2(1-rho^2)),
+bgroup("[",frac((x[1]~-~mu[1])^2, sigma[11])~-~2~rho~frac(x[1]~-~mu[1],
+sqrt(sigma[11]))~ frac(x[2]~-~mu[2],sqrt(sigma[22]))~+~
+frac((x[2]~-~mu[2])^2, sigma[22]),"]")),"}")),
+col="lightblue",
+theta=30,phi=20,
+r=50,
+d=0.1,
+expand=0.5,
+ltheta=90,lphi=90,
+shade=0.75,
+ticktype="detailed",
+nticks=5,
+
+)# produces the 3D plot
+
+mtext(expression(list(mu[1]==0,mu[2]==0,sigma[11]==8,sigma[22]==4,sigma[12]==5,rho==0.983)), side=1)# addinga textlineto the graph
+
+
+```
+
+
+```{r}
+pca <- princomp(z, cbind(x1, x2))
+
+```
+
+2. Sea la matriz de varianzas-covarianzas poblacionales:
+\[ \Sigma = \left(\begin{array}{cc}3 & 1 & 1\\1 & 3 & 1\\1 & 1 & 5\end{array}\right) \]
+
+a) Calcular los valores y vectores propios de $\Sigma$.
+
+
+b) Escribir el vector $y = (Y_1, Y_2, Y_3)'$ de componentes principales e indicar la proporción de la varianza total que explica cada componente.
+
+c) Representar la observación x = (2, 2, 1)0 en el plano que definen las dos primeras componentes principales.
+
+
+Recordemos que $ Ax = \lambda x$ o $(A-\lambda I)x=0$
+
+```{r}
+sigma <- matrix(c(3,1,1,1,3,1,1,1,5), nrow=3, byrow=T)
+e <- eigen(sigma)
+e$values
+```
+
+lo que significa que podemos descomponer $det|\Sigma - \lambda I|$:
+
+\[det \left[ \begin{array}{cc}3-\lambda & 1 & 1\\1 & 3-\lambda & 1\\1 & 1 & 5-\lambda\end{array}\right] = (\lambda - 6)(\lambda - 3)(\lambda - 2)\] 
+
+```{r}
+
+```
+
+

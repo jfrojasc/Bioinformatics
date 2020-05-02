@@ -1,0 +1,1044 @@
+---
+title: "PEC1-Análisis Multivariante"
+author: "José Félix Rojas Cabeza"
+date: "`r format(Sys.time(), '%d de %B de %Y')`"
+output:
+  html_document:
+    code_folding: show
+    theme: lumen
+    toc: yes
+    toc_float: yes
+  word_document:
+    toc: yes
+  pdf_document:
+    toc: yes
+---
+```{r setup, include=FALSE}
+require(knitr)
+# include this code chunk as-is to set options
+opts_chunk$set(comment = NA, prompt = TRUE, tidy = FALSE, 
+               fig.width = 7, fig.height = 7,echo = TRUE,
+               fig.align='center',
+               message = FALSE, warning = FALSE, cache=TRUE)
+Sys.setlocale("LC_TIME", "C")
+```
+
+```{r echo=FALSE}
+# verifica si un paquete está instalado, si no lo está, lo instala
+# if(!(require(paquete))) install.packages("paquete")
+#if(!(require())) install.packages("")
+if(!(require(devtools))) install.packages("devtools") 
+if(!(require(corpcor))) install.packages("corpcor")
+if(!(require(corrplot))) install.packages("corrplot")
+if(!(require(qgraph))) install.packages("qgraph") 
+if(!(require(psych))) install.packages("psych")
+if(!(require(factoextra))) install.packages("factoextra")
+if(!(require(NCmisc))) install.packages("NCmisc")
+if(!(require(pca3d))) install.packages("pca3d")
+if(!(require(nFactors))) install.packages("nFactors")
+if(!(require(printr))) {
+  install.packages(
+    'printr',
+    type = 'source',
+    repos = c('http://yihui.name/xran', 'http://cran.rstudio.com')
+  )
+}
+```
+
+
+# Ejercicio 1
+
+La p53 es una importante proteína supresora de tumores. El conjunto de datos p53 comprende 50 muestras de las líneas celulares del NCI-60 diferenciadas según el estado del gen TP53: 17 líneas celulares portadoras del tipo salvaje (WT) TP53 y 33 líneas celulares portadoras del tipo mutante (MUT) TP53. 
+Los perfiles transcripcionales obtenidos a partir de chips o microarrays de la plataforma **hgu95av2** se pueden consultar en la [web del Broad Institute](https://www.gsea-msigdb.org/gsea/datasets.jsp)
+
+El paquete GSAR de Bioconductor contiene una versión procesada (filtrada y normalizada) del conjunto de datos de p53 en forma de objeto matriz. El proceso que explican los autores del paquete consistió en descargar el conjunto de datos de p53 de la página web del Broad Institute. Las intensidades de los niveles de la sonda se normalizaron por cuantiles y se transformaron a la escala de registro usando $log_2(1 + intensidad)$. Las sondas originalmente tenían identificadores de Affymetrix que son mapeados a identificadores de símbolos genéticos únicos. Se descartaron las sondas sin mapear a entrez y los identificadores de símbolos genéticos. Se evaluaron las sondas con intensidades duplicadas y la sonda con el mayor valor absoluto del estadístico t entre las condiciones de WT y MUT se seleccionó como la coincidencia de genes. Finalmente, a los genes se les asignaron identificadores de símbolos genéticos y a las columnas se
+les asignaron nombres que indicaban si pertenecían al grupo WT o MUT. Las columnas se clasificaron de tal manera que las primeras 17 columnas son muestras de WT y las siguientes 33 columnas son las muestras de MUT. Esta versión procesada del conjunto de datos p53 es la que tenemos en el archivo adjunto (se adjunta para evitar el uso de los paquetes GSAR y otros paquetes de Bioconductor) `p53.RData`.
+
+## 1. Comparación univariante:
+Para comparar de forma univariante cada uno de los genes en las dos muestras podemos utilizar el test *t* de Student con varianzas distintas.
+
+Para cada gen g $(g = 1,\cdots,G)$ calcularemos las medias $\bar y_{1g}$ y $\bar y_{2g}$ y las varianzas de cada nivel de expresión en log2 unidades (esto ya lo tenemos en nuestras datos):
+
+\[S^2_{1g} = \frac{\sum_{i=1}^{n_1}(y_{1ig}-\bar y_{1g})^2}{n_1-1} \quad 
+  S^2_{2g} = \frac{\sum_{i=1}^{n_1}(y_{2ig}-\bar y_{2g})^2}{n_2-1} \]
+
+de forma que el estadístico t para compara las expresiones en los dos grupos con distintas varianzas es 
+
+\[ t_{g} = \frac{\bar y_{1g}-\bar y_{2g}}{\sqrt{s^2_{1g}/n_1+s^2_{2g}/n_2}} \]
+
+Calcular los estadísticos $t_g$ para todos los genes y dibujar un gráfico de cuantiles del tipo *cuantil-cuantil* para ver si se ajusta aproximadamente a la distribución *t* de Student.
+
+Dibujar también un gráfico de densidad para los errores estándar del test (denominador) para cada gen. ¿Qué podemos destacar?
+
+### Lectura del archivo:
+```{r}
+path_1 <- "C:/Users/josef/Dropbox/Documents/Personal/UOC/3er Cuatrimestre/M0.165-AM/Evaluacion/p53.Rdata"
+p53 <- load(file = path_1)
+
+str(p53)
+```
+
+```{r}
+str(p53DataSet)
+head(p53DataSet, 3)
+
+range(p53DataSet)
+```
+
+### comparación univariante:
+```{r}
+W <- p53DataSet[,1:17]
+M <- p53DataSet[,18:50]
+
+dim(W)
+dim(M)
+
+#length(W[, 1]) 8655
+#length(M[, 1]) 8655
+
+#length(W[1, ]) 17
+#length(M[1, ]) 33
+```
+
+#### $\bar y_{1g}$
+```{r}
+mean_w <- c()
+
+for(i in 1:length(W[,1])){
+  mean_w[i] <- mean(W[i,1:17])
+}
+```
+
+#### $\bar y_{2g}$
+```{r}
+mean_m <- c()
+
+for(i in 1:length(M[,1])){
+  mean_m[i] <- mean(M[i,1:33])
+}
+```
+
+#### $S^2_{1g}$ 
+```{r}
+# W
+sq_sum_w <- c()
+
+for(i in 1:length(W[,1])){
+  sq_sum_w [i] <-( 
+    (W[i,1]-mean_w[i])^2+
+    (W[i,2]-mean_w[i])^2+
+    (W[i,3]-mean_w[i])^2+
+    (W[i,4]-mean_w[i])^2+
+    (W[i,5]-mean_w[i])^2+
+    (W[i,6]-mean_w[i])^2+
+    (W[i,7]-mean_w[i])^2+
+    (W[i,8]-mean_w[i])^2+
+    (W[i,9]-mean_w[i])^2+
+    (W[i,10]-mean_w[i])^2+
+    (W[i,11]-mean_w[i])^2+  
+    (W[i,12]-mean_w[i])^2+
+    (W[i,13]-mean_w[i])^2+
+    (W[i,14]-mean_w[i])^2+
+    (W[i,15]-mean_w[i])^2+
+    (W[i,16]-mean_w[i])^2+
+    (W[i,17]-mean_w[i])^2) / (length(W[,1]) - 1)
+}
+```
+
+#### $S^2_{2g}$
+```{r}
+# M
+sq_sum_m <- c()
+
+for(i in 1:length(M[,1])){
+  sq_sum_m [i] <-( 
+    (M[i,1]-mean_m[i])^2+
+    (M[i,2]-mean_m[i])^2+
+    (M[i,3]-mean_m[i])^2+
+    (M[i,4]-mean_m[i])^2+
+    (M[i,5]-mean_m[i])^2+
+    (M[i,6]-mean_m[i])^2+
+    (M[i,7]-mean_m[i])^2+
+    (M[i,8]-mean_m[i])^2+
+    (M[i,9]-mean_m[i])^2+
+    (M[i,10]-mean_m[i])^2+
+    (M[i,11]-mean_m[i])^2+  
+    (M[i,12]-mean_m[i])^2+
+    (M[i,13]-mean_m[i])^2+
+    (M[i,14]-mean_m[i])^2+
+    (M[i,15]-mean_m[i])^2+
+    (M[i,16]-mean_m[i])^2+
+    (M[i,17]-mean_m[i])^2+
+    (M[i,18]-mean_m[i])^2+
+    (M[i,19]-mean_m[i])^2+
+    (M[i,20]-mean_m[i])^2+  
+    (M[i,21]-mean_m[i])^2+  
+    (M[i,22]-mean_m[i])^2+
+    (M[i,23]-mean_m[i])^2+
+    (M[i,24]-mean_m[i])^2+
+    (M[i,25]-mean_m[i])^2+
+    (M[i,26]-mean_m[i])^2+
+    (M[i,27]-mean_m[i])^2+
+    (M[i,28]-mean_m[i])^2+
+    (M[i,29]-mean_m[i])^2+
+    (M[i,30]-mean_m[i])^2+
+    (M[i,31]-mean_m[i])^2+  
+    (M[i,32]-mean_m[i])^2+
+    (M[i,33]-mean_m[i])^2      
+    ) / (length(W[,1]) - 1)
+}
+```
+
+
+#### $t_g$
+```{r}
+n1 <- length(W[,1])
+n2 <- length(M[,1])
+
+t_g <- c()
+
+for(i in 1:length(W[,1])){
+  t_g[i] <- (mean_w[i] - mean_m[i]) / (sqrt( sq_sum_w[i]/n1 + sq_sum_m[i]/n2 ))
+}
+```
+
+#### Error estándar
+```{r}
+std_err_w <- c() 
+
+for(i in 1:length(W[,1])){
+  std_err_w[i] <- (sqrt( sq_sum_w[i]/n1))
+}
+
+std_err_m <- c()
+
+for(i in 1:length(M[,1])){
+  std_err_m[i] <- (sqrt( sq_sum_m[i]/n2))
+}
+```
+
+### Gráfico *cuantil-cuantil*
+```{r fig.width=12, fig.height=7}
+n_gen <- 1:8655
+n_t <- 1:9000
+
+par(mfrow = c(1,2))
+
+qqplot(n_gen, t_g, main = "Datos de P53")
+
+
+t_data <- rt(8655, 14)
+qqplot(n_t, t_data, main = "Datos de dist. T de 9000 datos")
+```
+Se hizo la prueba con varios grados de libertad, si son menores que 9, la función de t se aplana. De once en adelante se pueden notar semejanzas evidentes en los dos gráficos. 
+### Gráfico de densidad para los errores 
+```{r}
+d1 <- density(std_err_w)
+d2 <- density(std_err_m)
+plot(d1, col = "blue", main = "Gráfico de densidad para los errores de WT y MUT")
+lines(d2, col = "deeppink")
+legend("topright", legend=c("WT", "MUT"), lwd=2, col =  c("blue", "deeppink"), bty="n")
+```
+
+
+### *Volcano Plot*
+
+```{r}
+# "Fold Change" (difference between means)
+fc <- c()
+
+for(i in 1:length(W[,1])){
+  fc[i] <- mean_w[i] - mean_m[i]
+}
+
+abs_fc <- c()
+
+for(i in 1:length(W[,1])){
+  abs_fc[i] <- abs(fc[i]) 
+}
+
+
+
+
+# P values
+p_val_l <- list()
+p_val <- c()
+
+for(i in 1:length(W[,1])){
+  p_val_l[[i]] <- t.test(W[i,1:17], M[i,1:33],
+                       alternative = c("two.sided"), var.equal = F)  
+}
+
+for(i in 1:length(W[,1])){
+  p_val[i] <- p_val_l[[i]]$p.value  
+}
+
+# P value transformation
+log_p_val <- c()
+
+for(i in 1:length(W[,1])){
+  log_p_val[i] <- -log10(p_val[i])
+}
+```
+
+```{r}
+test_1 <- which(log_p_val>=2) 
+test_2 <- which(abs_fc>1)
+
+id <- c()
+
+for( i in 1:length(test_1) ){
+  for ( j in 1:length(test_2) ){
+    if (test_1[i] == test_2[j]){
+      id[i] <- test_1[i]  
+    }
+  }
+}
+
+library(NCmisc)
+id <- narm(id)
+
+id
+
+row_names <- rownames(p53DataSet)
+
+names <- c()
+
+for (i in 1:length(id)){
+  names[i] <- row_names[as.integer(id[i])]
+}
+
+names
+```
+
+```{r}
+na01 <- rep("", each=233-1)
+na02 <- rep("", each=261-233-1)
+na03 <- rep("", each=1703-261-1)
+na04 <- rep("", each=1788-1703-1)
+na05 <- rep("", each=2835-1788-1)
+na06 <- rep("", each=2925-2835-1)
+na07 <- rep("", each=3243-2925-1)
+na08 <- rep("", each=3643-3243-1)
+na09 <- rep("", each=4767-3643-1)
+na10 <- rep("", each=4885-4767-1)
+na11 <- rep("", each=5675-4885-1)
+na12 <- rep("", each=6279-5675-1)
+na13 <- rep("", each=6458-6279-1)
+```
+
+```{r}
+labels <- c(
+  na01, row_names[233] , na02, row_names[261],  na03, row_names[1703], 
+  na04, row_names[1788], na05, row_names[2835], na06, row_names[2925], 
+  na07, row_names[3243], na08, row_names[3643], na09, row_names[4767], 
+  na10, row_names[4885], na11, row_names[5675], na12, row_names[6279], 
+  na13, row_names[6458])
+
+```
+
+```{r}
+plot(log_p_val ~ fc , main = "Volcano Plot", ylab = "Log Base 10 del P-Valor", 
+     xlab ="Fold Change (Log Base 2 de la diferencia de medias)")
+abline(h= -log10(0.01))
+abline(v=1, lty=2)
+abline(v=-1, lty=2)
+
+text(fc, log_p_val, labels = labels, pos=4, col="blue" )
+
+# No entiendo por qué salen varios puntos debajo del threshold
+```
+
+```{r}
+# este sort por p_valor se hizo en excel por comodidad
+numbers <- c(5675,6458,233,1788,3243,4885,6279,2925,2835,4767,3643,1703,261)
+```
+
+```{r}
+sorted_log_pval <- sort(c(log_p_val[233],log_p_val[261],log_p_val[1703],
+                          log_p_val[1788],log_p_val[2835],log_p_val[2925],
+                          log_p_val[3243],log_p_val[3643],log_p_val[4767],
+                          log_p_val[4885],log_p_val[5675],log_p_val[6279],
+                          log_p_val[6458]), decreasing = T)
+
+genes <- c(labels[5675],labels[6458],labels[233],labels[1788],labels[3243]
+          ,labels[4885],labels[6279],labels[2925],labels[2835],labels[4767]
+          ,labels[3643],labels[1703],labels[261]) 
+
+sorted_fc <- c(fc[5675],fc[6458],fc[233],fc[1788],fc[3243],fc[4885],fc[6279],
+               fc[2925],fc[2835],fc[4767],fc[3643],fc[1703],fc[261]) 
+```
+
+```{r}
+library(knitr, quietly = TRUE)
+
+# cuáles vectores necesito
+# Nombre de los genes (bucle de rowname con as.integer (l2[[i]]) como número)
+# Diferencia de medias (fc)
+
+datos <- cbind(genes, round(sorted_log_pval, 6), round(sorted_fc,6)  )
+kable(datos, col.names = c("Gen",  "Log(P-Valor)", "Dif. Medias"), 
+      align = c("l", "l", "l"), caption = "Contraste de Valores Medios y P valores de los genes de interés")
+```
+Nótese que el $log_{10}(p-valor)$ aumenta a medida que el p=valor se hace más pequeño.
+
+## 2. Análisis de significación con microarrays
+Tusher et al.[4] proponen un análisis más sofisticado que el apartado anterior, consiste en mejorar el denominador del test *t* añadiendo una constante. El error estándar del denominador se ajusta hacia un valor común para todos los genes. Eso previene la excesiva subestimación de los errores estándar y así se eliminan de la lista aquellos genes que cambian sólo un poco. En concreto, el estadístico es:
+
+\[ d_g = \frac{\bar x_{i,1}-\bar x_{i,2}}{\sqrt{s^2_g(1/n_1+1/n_2)}+s_0} \]
+
+donde el *gene-specific scatter* es:
+
+\[ s^2_g =\frac{\sum_{i=1}^{n_1}(y_1ig - \bar y_{1g})^2+\sum_{i=1}^{n_2}(y_{2ig} - \bar y_{2g})^2 }{n_1+n_2-2} \]
+
+y queda por determinar el valor de la constante $s_0$.
+
+Nosotros tomaremos una $s_0$ sencilla, basada en la mediana de las desviaciones estándar $s_g$.
+
+Ahora desconocemos la distribución de los $d_i$ y deberíamos hacer un test de permutaciones para cada gen, si queremos obtener un p-valor (no lo haremos). En su lugar, simplemente destacaremos como top los 40 primeros genes ordenados de mayor a menor $|d_g|$.Con la función `intersect()` veremos qué genes coinciden en los dos métodos.
+
+### Desviaciones estándar
+```{r}
+sg <- c()
+
+for(i in 1:8655){
+  sg[i] <-  ((
+    (W[i,1]-mean_w[i])^2+
+    (W[i,2]-mean_w[i])^2+
+    (W[i,3]-mean_w[i])^2+
+    (W[i,4]-mean_w[i])^2+
+    (W[i,5]-mean_w[i])^2+
+    (W[i,6]-mean_w[i])^2+
+    (W[i,7]-mean_w[i])^2+
+    (W[i,8]-mean_w[i])^2+
+    (W[i,9]-mean_w[i])^2+
+    (W[i,10]-mean_w[i])^2+
+    (W[i,11]-mean_w[i])^2+  
+    (W[i,12]-mean_w[i])^2+
+    (W[i,13]-mean_w[i])^2+
+    (W[i,14]-mean_w[i])^2+
+    (W[i,15]-mean_w[i])^2+
+    (W[i,16]-mean_w[i])^2+
+    (W[i,17]-mean_w[i])^2)
++
+   ((M[i,1]-mean_m[i])^2+
+    (M[i,2]-mean_m[i])^2+
+    (M[i,3]-mean_m[i])^2+
+    (M[i,4]-mean_m[i])^2+
+    (M[i,5]-mean_m[i])^2+
+    (M[i,6]-mean_m[i])^2+
+    (M[i,7]-mean_m[i])^2+
+    (M[i,8]-mean_m[i])^2+
+    (M[i,9]-mean_m[i])^2+
+    (M[i,10]-mean_m[i])^2+
+    (M[i,11]-mean_m[i])^2+  
+    (M[i,12]-mean_m[i])^2+
+    (M[i,13]-mean_m[i])^2+
+    (M[i,14]-mean_m[i])^2+
+    (M[i,15]-mean_m[i])^2+
+    (M[i,16]-mean_m[i])^2+
+    (M[i,17]-mean_m[i])^2+
+    (M[i,18]-mean_m[i])^2+
+    (M[i,19]-mean_m[i])^2+
+    (M[i,20]-mean_m[i])^2+  
+    (M[i,21]-mean_m[i])^2+  
+    (M[i,22]-mean_m[i])^2+
+    (M[i,23]-mean_m[i])^2+
+    (M[i,24]-mean_m[i])^2+
+    (M[i,25]-mean_m[i])^2+
+    (M[i,26]-mean_m[i])^2+
+    (M[i,27]-mean_m[i])^2+
+    (M[i,28]-mean_m[i])^2+
+    (M[i,29]-mean_m[i])^2+
+    (M[i,30]-mean_m[i])^2+
+    (M[i,31]-mean_m[i])^2+  
+    (M[i,32]-mean_m[i])^2+
+    (M[i,33]-mean_m[i])^2)) / 
+    (8655+8655-2)
+}
+
+s_0 <- median(sg)
+```
+
+```{r}
+d_g <- c()
+for(i in 1:8655){
+  d_g[i] <- (mean_w[i] - mean_m[i]) / (sqrt(sg[i]*(1/8655+1/8655))+s_0)
+}
+
+datos_2 <- data.frame (rownames(W), abs(d_g) )
+
+colnames(datos_2) <- c("Genes","abs_d_g")
+
+datos_ordenados <- datos_2[order(abs(d_g), decreasing = T),]
+
+datos_2 <- head(datos_ordenados, 40)
+```
+
+```{r}
+kable(head(datos_ordenados, 40), col.names = c("Genes",  "|d_g|"), 
+      align = c("l", "l"), caption = "Valor absoluto de d_g")
+
+``` 
+
+### Genes que coinciden en ambos métodos
+```{r}
+intersect(datos[,1], datos_2$Genes)
+```
+## 3. Un test multivariante:
+
+Como se trata de dos grupos, vamos a aplicar un test $T^2$ de Hotelling, ya que los diferentes test MANOVA coinciden con éste para dos grupos. Sin embargo, las matrices de varianzas-covarianzas de cada grupo son singulares y malcondicionadas. Esto se debe al hecho de tener más variables (genes) que observaciones (pacientes). Por lo tanto debemos sustituirlas por una versión contraída (shrinkage) como la que propone Chen-An Tsai et al.[3] en el apartado 2. El cálculo no es sencillo, pero en R disponemos de la función `cov.shrink()` en el paquete `corpcor`. Así pues, debemos calcular “a mano” el estadístico $T^2$ con las matrices de covarianzas que resultan de dicha función.
+Recordemos que la matriz de covarianzas común es
+
+\[ S=\frac{(n_1-1) \tilde S_1 + (n_2 - 1)\tilde S_2 }{n_1+n_2-2} \]
+
+donde $\tilde S_i$ son las matrices de covarianzas contraídas.
+
+Otro problema adicional es el cálculo de la inversa de la matriz S que debemos optimizar gracias a la descomposición de Choleski[$^2$](http://erre-que-erre-paco.blogspot.com/2015/12/la-descomposicion-de-choleski.html) y las funciones `chol()` y `chol2inv()` de R.
+
+¿Cuál es el estadístico $T^2$ con este test?
+
+### Sustitución por matriz contraída:
+```{r}
+set.seed(123) #reproducibility
+library(corpcor)
+n1 <- length(W[1,])
+n2 <- length(M[1,])
+
+S1 <- cov.shrink(t(W), verbose = F)
+S2 <- cov.shrink(t(M), verbose = F)
+```
+
+```{r}
+
+S <- (n1-1)*S1 + (n2-1)*S2 / (n1+n2-2)
+Chol <- chol(S) #triangular superior
+Chol_inv <- chol2inv(S) # 
+```
+
+```{r}
+
+
+```
+
+```{r}
+# Manly p56 - Cuadras 2,4
+#means1 <- colMeans(W); range(round(means1,3))
+#means2 <- colMeans(M); range(round(means1,3))
+```
+
+## 4. Distribución del estadístico $T^2$
+
+Es evidente que la distribución del estadísto $T^2$ del apartado anterior es desconocida. Para realizar un contraste con ese estadístico podemos hacer un test de permutaciones.
+
+Se trata de calcular N veces (N = 1000) el mismo estadístico $T^2$, pero seleccionando al azar y con repetición 17 casos (columnas) para el primer grupo y 33 casos para el segundo. Un sencillo ejemplo de test de permutaciones lo podemos ver en el apartado “Brute force” del documento de Ben Bolker[$^3$](https://mac-theobio.github.io/QMEE/permutation_examples.html). El problema aquí es que cada iteración dura entre uno y dos minutos en un ordenador personal potente.
+
+Se pide escribir el algoritmo en R que calcula las N = 1000 iteraciones (no hace falta ejecutarlo). A cambio, en el archivo de datos `p53.RData` se halla un vector t2 con los resultados de 1000 estadísticos para calcular el p-valor y decidir el contraste. ¿Cual es la conclusión?
+
+```{r}
+#set.seed(101) ## for reproducibility
+#nsim <- 1000
+#res <- numeric(nsim) ## set aside space for results
+#for (i in 1:nsim) {
+#    perm <- sample(nrow(ants))
+#    bdat <- transform(ants,colonies=colonies[perm])
+#    ## compute & store difference in means; store the value
+#    res[i] <- mean(bdat[bdat$place=="field","colonies"])-
+#        mean(bdat[bdat$place=="forest","colonies"])
+#}
+#obs <- mean(ants[ants$place=="field","colonies"])-
+#    mean(ants[ants$place=="forest","colonies"])
+## append the observed value to the list of results
+#res <- c(res,obs)
+
+
+set.seed(123)
+nsim <- 1000
+res <- numeric(nsim)
+#for(i in 1:nsim){
+#  M_1 <- 
+#  M_2 <- 
+#  T2 <- length(M_1[,1])*( t(y) %*% chol2inv() %*% y )
+#}
+
+``` 
+
+
+```{r}
+head(t2)
+```
+
+# Ejercicio 2. PCA
+
+La mayoría de los estadounidenses adolescentes y adultos consumen regularmente sustancias psicoactivas durante una proporción cada vez mayor de su vida. Hay varias formas de consumo de sustancias psicoactivas lícitas e ilícitas, lo que sugiere que las pautas de consumo de sustancias psicoactivas son una parte importante del repertorio conductual del individuo y tienen implicaciones generalizadas para el desempeño de otros comportamientos. En una investigación de estos fenómenos, Huba y otros (1981) reunieron
+datos sobre el consumo de drogas de 1634 estudiantes de los grados séptimo a noveno en 11 escuelas de la zona metropolitana de Los Ángeles. Cada participante rellenó un cuestionario sobre el número de veces que había utilizado una determinada sustancia. Las sustancias sobre las que se preguntaba eran las siguientes:
+
+
+| ID        | Substance description                   |
+|-----------|-----------------------------------------|
+| X1.       | cigarettes                              |
+| X2.       | beer                                    |
+| X3.       | wine                                    |
+| X4.       | liquor                                  |
+| X5.       | cocaine                                 |
+| X6.       | tranquillizers                          |
+| X7.       | drug store medications used to get high |
+| X8.       | heroin and other opiates                |
+| X9.       | marijuana                               |
+| X10.      | hashish                                 |
+| X11.      | inhalants (glue, gasoline, etc.)        |
+| X12.      | hallucinogenics (LSD, mescaline, etc.)  |
+| X13.      | amphetamine, stimulants                 |
+
+Las respuestas se codificaron en una escala de Likert del tipo:
+
+1. nunca 2. sólo una vez 3. en algunas ocasiones 4. muchas veces 5. regularmente
+
+Las correlaciones entre las tasas de uso de las 13 sustancias se muestran en la tabla 4.7 del libro de Everitt[2]. Esta matriz de correlaciones está disponible [$^4$](https://www.york.ac.uk/depts/maths/data/everitt/welcome.htm) entre los datos de dicho libro con el nombre de `druguse.cor`.
+
+Con esta matriz de correlaciones vamos a realizar de forma guiada un Análisis de Componentes Principales (PCA) y diversos Análisis Factoriales (FA) como se explican en los capítulos 3 y 4 del libro de Everitt[2].
+
+## 2.1 Corrección de matriz:
+Una vez cargados los datos, comprobamos que la matriz no es simétrica. Hay que corregir el error antes de continuar.
+
+Una vez corregido, realizar una representación gráfica de las correlaciones y valorar las más destacadas. Para la representación gráfica podemos utilizar el paquete `corrplot`.
+
+## 2.2 Relaciones dos a dos:   
+Para ayudarnos en las relaciones dos a dos podemos hacer un gráfico de red con el paquete `qgraph`. Simplemente debemos elegir un threshold adecuado para destacar las principales relaciones
+
+## 2.3 Test de esfericidad:
+Antes de realizar el PCA, podemos calcular un test de esfericidad. Se trata de contrastar si las correlaciones entre las variables estudiadas son todas cero. Para ello disponemos del test de Bartlett que podemos encontrar en el paquete `psych`. ¿Cual es la hipótesis nula del test? ¿Cual es el estadístico y su p-valor? ¿Cual es la conclusión?
+
+Sin embargo, el índice de Kaiser, Meyer y Olkin (KMO) es una medida que, aunque no tiene
+distribución conocida, resulta más adecuado para valorar la esfericidad. El mismo paquete `psych` dispone de la función apropiada. En su ayuda veremos la valoración según el índice obtenido.
+
+## 2.4 Realización de PCA y valoración de número de componentes
+El siguiente paso es realizar el PCA a partir de esta matriz de correlaciones. Valorar el número de componentes necesario según los criterios habituales
+
+## 2.5 Interpretación de componentes:
+Interpretar las tres primeras componentes del PCA. Dibujar los gráficos más oportunos. Tal vez el paquete `factoextra` nos pueda ayudar.
+
+
+### 2.1.1 Carga de datos y reparación de error:
+
+```{r}
+# Copiando el texto del archivo .dat en R
+# también se puede hacer así: 
+path <- "C:/Users/josef/Dropbox/Documents/Personal/UOC/3er Cuatrimestre/M0.165-AM/Evaluacion/chap4druguse.dat"
+druguse.cor <- source(path)$value
+
+```
+
+```{r}
+druguse.cor
+# inhalants vs halucinogenics no da lo mismo que halucinogenics vs inhalants. 
+```
+
+```{r}
+druguse.cor[12,11]
+druguse.cor[11,12]
+
+# esta es una decisión arbitraria para que la matríz sea simétrica
+# he supuesto que es más simple que el que insertó los datos omitiera el 0
+druguse.cor[11,12] <- druguse.cor[12,11]
+
+# ahora, el error se ha corregido
+isSymmetric(druguse.cor)
+```
+
+### 2.1.2 Correlograma:
+```{r}
+require(corrplot)
+corrplot(druguse.cor, type="lower", method="pie")
+``` 
+Como podíamos esperar, se puede observar que hay una gran correlación en el uso de licores, cerveza, y vino. Interesantemente, el cigarrillo tuvo una correlación moderada con el alcohol (aparentemente, un porcentaje menor de quienes utilizan alcochol también fuman). Además, se confirma la relación entre marijuana y cigarrillo. también hay una correlación alta entre hashish y marijuana (son partes de la misma planta).
+
+También se ve una disminución entre el uso de marijuana y consumo de vino. 
+
+Interesantemente, hubo una relación alta entre anfetaminas (estimulantes) y tranquilizantes. Y relación alta entre halucinógenos y anfetaminas. 
+
+### 2.2 Gráfico de red
+```{r}
+library(qgraph)
+# Correlations:
+Q <- qgraph(druguse.cor, threshold=0.41, layout="spring")
+title("Gráfico de Red de `druguse.cor`")
+```
+La intensidad del color indica una correlación más estrecha: Así, la correlación entre uso de licores es más fuerte que entre uso de algún licor y algún elemento del grupo de los cigarrillos. Diferentes umbrales (thresholds) indican grupos discretos. 0.30 es el valor más bajo donde todos los grupos se unen. Si se usa un threshold muy estricto (0.5), se observan 3 grupos: Licor-cerveza-Vino; cigarrillo, Marijuana y Hachís, y Anfetaminas, Tranquilizantes y Halucinógenos. El mapa representado arriba es con un umbral más bajo (0.41), para ver conexiones entre los grupos principales.
+
+Nótese que cerveza(ber), licor (lqr) y vino (win) están muy cerca, unidos estrechamente con cigarrillo (cgr), marijuana (mrj), y hachís (hsh), si bien este último es el más distante de cluster de licores y más cercano al otro cluster. Una segunda parte del cluster donde están anfetaminas (amp), halucinógenos (hlc) y tranquilizantes (trn). Finalmente se ve el resto de los "externos", que tienen relaciones más débiles; como inhaladores (inh) y "Drug Store Medication" (dsm), que corresponden a un grupo más externo (adicciones que no suelen presentarse en conjunto con otras); y quedan las drogas más fuertes: cocaína(ccn) y heroina (hrn), sin conexión en este umbral.
+
+### 2.3 Test de esfericidad (Bartlett):
+```{r}
+library(psych)
+(a <- cortest.bartlett(druguse.cor, n=1634, diag=F))
+```
+### 2.3.1 Detalles del test de bartlett: 
+¿Cuál es la hipótesis nula del test?
+Que la matriz de correlaciones es diagonal
+
+¿Cuál es el estadístico y su p-valor? 
+$\chi^2$ = `r a$chisq`. p-valor= `r a$p.value` 
+
+¿Cuál es la conclusión?
+la matriz de correlaciones no es diagonal.
+
+### 2.3.2 Test de Kaiser, Meyer, Olkin: 
+```{r}
+KMO(druguse.cor)
+```
+Este test mide qué tan factorizable es la información en una matriz de correlación. Al ser todos los resultados mayores que .8, se puede decir que el análsis es "meritorio".
+
+### 2.4 Análisis de Componentes Principales (PCA):
+
+```{r}
+pca <- princomp(druguse.cor, cor = F, scores = T)
+summary(pca, loadings=T)
+```
+### Bigráfico de Individuos y variables:
+
+```{r}
+fviz_pca_biplot(pca, col.ind="contrib", gradient.cols = c("#00AFBB", "#E7B800", "#FC4E07"), repel=T)
+# http://www.sthda.com/english/articles/31-principal-component-methods-in-r-practical
+# -guide/118-principal-component-analysis-in-r-prcomp-vs-princomp/
+```
+```{r}
+fviz_pca_biplot(pca, axes= c(2,3), col.ind="contrib", gradient.cols = c("#00AFBB", "#E7B800", "#FC4E07"), repel=T)
+```
+
+### Scree Plot:
+```{r}
+library(factoextra)
+fviz_eig(pca)
+```
+
+```{r}
+library(nFactors)
+ev <- eigen(druguse.cor)
+ap <- parallel(subject=1634 , var=13, rep=100, cent=.05)
+nS <- nScree (x=ev$values, aparallel=ap$eigen$qevpea)
+plotnScree(nS)
+```
+
+Considerando el scree plot, y suponiendo que quisiéramos interpretar los componentes en la situación modelada, deberíamos tomar 3 componentes, que explican (cumulative proportion, tercera fila) 68,96% del comportamiento. Si es crítico para el estudio usar el mínimo posible de variables, el uso de sólo 2 explicaría 61% de la variabilidad, lo que también es utilizable, pero nos deja uno de los grupos relevantes con el umbral seleccionado sin representación en los componentes.  
+
+### Contribución de variables:
+```{r}
+library(factoextra)
+
+
+# Contributions of variables to PCA
+fviz_contrib(pca, choice = "var", axes = 1, top = 9)
+fviz_contrib(pca, choice = "var", axes = 2, top = 9)
+fviz_contrib(pca, choice = "var", axes = 3, top = 9)
+#fviz_contrib(pca, choice = "var", axes = 4, top = 9)
+#fviz_contrib(pca, choice = "var", axes = 5, top = 9)
+#fviz_contrib(pca, choice = "var", axes = 6, top = 9)
+
+# par(mfrow=c(2,3)) no sirvió, 
+# layout(matrix(c(1,2,3,4,5,6), 2, 3, byrow = TRUE), widths = c(1,1), heights = c(1,1))
+# Tal vez el paquete no admite colocar varios gráficos en una sola salida.
+
+# http://www.sthda.com/english/wiki/factoextra-r-package-
+# easy-multivariate-data-analyses-and-elegant-visualization
+```
+
+### 2.5 Interpretación de las componentes:
+
+El PCA es aplicar una transformación lineal (ortonormalización) que transforma los datos en un nuevo sistema de coordenadas de tal manera que la mayor variación se encuentra en la primera coordenada, la segunda varianza más alta en la segunda coordenada, y así sucesivamente.
+
+Se puede notar que hay diferentes contribuyentes principales en cada componente, con alguns excepciones (DSM en 1 y 2 y Heroin en 1 y 3):
+
+
+|Comp.| Variables (En orden)                                    |
+|-----|---------------------------------------------------------|
+| PC1 | Beer, Wine, Liquor, Cigarrettes, **Heroin**             |
+| PC2 | Hashish, Amphetamine, **DSM**, Marijuana, Tranquilizers |
+| PC3 | **DSM**, Cocaine, **Heroin**, Inhalants                 |
+
+La primera componente (grupo Licores-Cigarrillos) se encuentra a la derecha en el bigráfico, y explica 47% de la variabilidad de los datos, las primeras 4 variables involucradas contribuyen entre 19 y 11% a la componente, y Heroin con una contribución menor, de aproximadamente 7% (gráfico de contribución de variables 1).
+
+La segunda componente (Grupo "Tranquilizantes") se concentran sustancias que "bajan" el estado de ánimo, que explican 14% de la variabilidad restante. Se encuentra en el lado izquierdo (arriba) del bigráfico. Los componentes explican la variabilidad con rangos entre aproximadamente 27 y 14% (ver gráfico de contribución de variables 2)
+
+Finalmente, la tercera componente (grupo "Externo"), en la esquina inferior izquierda, contiene las sustancias que quedaron sin conexión en el Gráfico de red. Este grupo nos permite explicar 7% de la variabilidad restante, con drug store medication (DSM) y cocaína como contribuyentes principales (gráfico de contribución de variables 3)
+
+# Ejercicio 3. Análisis factorial
+Con los mismos datos del ejercicio anterior vamos a realizar diversos análisis factoriales con 6 factores.
+
+## 3.1 
+El PCA puede considerarse un caso especial de Análisis factorial cuando $var(u_i) = \psi_i = 0$, es decir, el error es constante y la matriz diagonal $\Psi$ es cero.
+
+Calcular el PCA de la matriz de correlaciones `druguse.cor` con 6 factores y sin rotación con ayuda de la función `principal()` del paquete `psych`. ¿El resultado es equivalente al obtenido en el ejercicio anterior? ¿Los *loadings* son proporcionales a los vectores propios del PCA? ¿Cual es la proporción?
+
+## 3.2
+Ahora vamos a realizar un Principal Factor Analysis (PFA). El apartado 4.2.1 del libro de Everitt[2] nos explica en qué consiste pero no dice como se calcula. Por suerte disponemos de la función `fa()` del paquete `psych` que, con el parámetro `fm="pa"` y sin rotación, calcula todos los elementos del PFA. Observar que no es un PCA.
+Dibujar un gráfico de barras adyacentes para explicar los tres primeros factores en función de los *loadings*.
+
+## 3.3
+El apartado 4.2.2 del libro de Everitt[2] nos explica el Maximum Likelihood Factor Analysis (MLFA). Para calcularlo disponemos de la función `factanal()`.
+
+También podemos utilizar la función `fa()` del paquete `psych` con el parámetro `fm="ml"` y con la misma rotación que utiliza la función factanal(). ¿Es equivalente al resultado de la función `factanal()`?
+
+Dibujar un gráfico de barras adyacentes para explicar los tres primeros factores en función de los *loadings*.
+
+## 3.4
+En este apartado vamos a realizar el primer paso del algoritmo que se explica en el apartado 4.2.1 para el Principal Factor Analysis.
+
+Se trata de substituir la diagonal de la matriz de correlaciones con una primera aproximación de las comunalidades. La propuesta es que tomemos como valor inicial de dichas comunalidades, el cuadrado de los coeficientes de correlación múltiples de cada variable con todas las demás.
+
+Para calcular el cuadrado de los coeficientes de correlación múltiple entre las variables, debemos considerar la diagonal de la matriz de correlaciones inversa (los llamados VIFs).
+
+Una vez substituidas las comunalidades, realizaremos un PCA con ayuda de la función `eigen()` y calcularemos los *loadings* teniendo en cuenta que
+\[R = VDV' = VD^{1/2}(D^{1/2}V') = \Lambda\Lambda' \]
+donde D es la matriz diagonal con los valores propios.
+
+Hay que tener en cuenta únicamente los 6 primeros factores.
+
+¿Se parece el resultado al que hemos obtenido en el apartado 2?
+
+¿Porqué no podemos utilizar una función como princomp()?
+
+Nota: Recordemos que el signo de los vectores no importa.
+
+### 3.1 Análisis factorial con `principal()` de `Psych`:
+```{R}
+library(psych)
+pca_2 <- principal(druguse.cor, nfactors = 6, residuals = T, rotate=F, digits=3)
+pca_2$loadings
+
+pca$loadings
+```
+Parece que los resultados de aplicar `princomp()` y `principal()` no son equivalentes. La documentación de `psych` indica que `principal` devuelve "un subconjunto de los mejores nfactores. Los vectores propios son reescalados por la raíz cuadrada de los valores propios para producir las cargas de componentes más típicas en el análisis factorial".
+
+Mientras tanto, `princomp()` tiene por defecto habilitada una opción (`fix_sign = T`) que coloca los loadings y los scores de modo que el primero no sea negativo. 
+
+Es importante mencionar que, a diferencia del análisis de componentes principales, el análisis factorial no trata de dar cuenta de toda la varianza observada, solo la que se comparte a través de los factores comunes. En el análisis factorial es más importante dar cuenta de las covarianzas o correlaciones entre las variables manifiestas.
+
+```{r}
+library(FactoMineR)
+PCA <- PCA(druguse.cor, graph = T)
+PCA$eig
+```
+
+¿Los loadings son proporcionales a los vectores propios del PCA? 
+
+¿Cual es la proporción?
+
+```{r}
+
+```
+
+### 3.2 PFA
+
+```{r}
+require(psych)
+(fa_1 <- fa(druguse.cor, nfactors=6, n.obs = 1634, rotate = "none", scores = "regression", fm="pa"))
+```
+
+```{r}
+dataset <- fa_1$loadings[,1:3]
+
+row_names_fa <- rownames(dataset)
+  #c("cgr","ber","win","lqr","ccn","trn","dsm","hrn","mrj","hsh","inh","hlc","amp")
+col_names_fa <- colnames(dataset)
+
+# dataset
+factor <- rep(col_names_fa, each= 13)                
+substance <- rep(row_names_fa, 3)               
+value <- as.vector(dataset)
+data <- data.frame(substance, factor, value)
+```
+
+```{r}
+library(ggplot2)
+# graph
+ggplot(data, aes(fill=substance, y=value, x=factor)) + 
+    geom_bar(position="dodge", stat="identity")+labs ( title = "Loadings de `fa(..., fm='pa')` ")
+
+# nota, con "stack" en vez de "dodge" se ve mejor
+```
+
+### Maximum Likelihood Factor Analysis (MLFA)
+```{r}
+require(psych)
+(fa_2 <- fa(druguse.cor, nfactors=6, n.obs = 1634, rotate = "varimax", scores = "regression", fm="ml"))
+```
+
+```{r} 
+(fa_3 <- factanal( factors=6, covmat = druguse.cor, n.obs=1634, rotation="varimax" ))
+```
+
+¿Es equivalente al resultado de la función `factanal()`?
+
+```{r, echo=FALSE}
+L2 <- loadings(fa_2)
+L3 <- loadings(fa_3)
+
+dataset_2 <- L2[,1:3]
+dataset_3 <- L3[,1:3]
+
+#c("cgr","ber","win","lqr","ccn","trn","dsm","hrn","mrj","hsh","inh","hlc","amp")
+
+row_names_fa_2 <- rownames(dataset_2)
+col_names_fa_2 <- colnames(dataset_2)
+
+# dataset 2
+factors_2 <- rep(col_names_fa_2, each= 13)                
+substance_2 <- rep(row_names_fa_2, 3)               
+value_2 <- as.vector(dataset_2)
+data_2 <- data.frame(substance_2, factors_2, value_2)
+
+
+row_names_fa_3 <- rownames(dataset_3)
+col_names_fa_3 <- colnames(dataset_3)
+
+# dataset 3
+factors_3 <- rep(col_names_fa_3, each= 13)                
+substance_3 <- rep(row_names_fa_3, 3)               
+value_3 <- as.vector(dataset_3)
+data_3 <- data.frame(substance_3, factors_3, value_3)
+```
+
+```{r}
+library(ggplot2)
+# graph
+
+ggplot(data_2, aes(fill=substance_2, y=value_2, x=factors_2)) + 
+    geom_bar(position="dodge", stat="identity")+labs ( title =  "Loadings de `fa(..., fm='ml')` ")
+```
+
+```{r}
+library(ggplot2)
+# graph
+
+ggplot(data_3, aes(fill=substance_3, y=value_3, x=factors_3)) + 
+    geom_bar(position="dodge", stat="identity")+labs ( title = "Loadings de `factanal()`")
+```
+
+En el segundo gráfico (Loadings de `fa(..., fm='ml')`) se observan tres factores que recuerdan los grupos que se describen en el gráfico de redes, siendo ML3 parecido al grupo que tenía licores-cigarrillo (todas con valores superiores a 0.5); ML3 parecido al grupo de licores-cigarrillo; finalmente, el grupo parecido al externo anterior, con drugas como cocaína y heroina entre los representantes principales del factor, en ML4. 
+
+En el tercero(loadings de `factanal()`), el factor 1 correspondería al grupo de licores-cigarrillo, el factor2 sería distinto, porque correspondería a un grupo de tranquilizantes, cocaína y heroína y el factor 3 también sería diferente, porque a pesar de que las sustancias son parecidas al grupo anteriormente descrito, el contribuyente más alto a la variabilidad de ese factor es anfetaminas, seguido por halucinógenos y tranquilizantes.
+
+De acuerdo con la documentación de `fa`, hay dos funciones de rotación: en una `varimax()` en el paquete `GPArotation` no aplica por defecto la normalización de Kaiser, mientras que la misma función en `stats` sí la aplica. Parece ser que la rotación produce resultados ligeramente distintos aún cuando se nomaliza.
+
+### 4. Principal Factor Analysis 
+
+```{r}
+# debido a la gran cantidad de decimales de druguse.cor,
+# Se deben manejar las cifras significativas para obtener 
+# la identidad al multiplicar A por su inversa
+
+C <- round(druguse.cor, 4)
+
+inv_C <- round(solve(C), 4)
+
+rownames(C) <- c(rep("", times=13))
+colnames(C) <- c(rep("", times=13))
+rownames(inv_C) <- c(rep("", times=13))
+colnames(inv_C) <- c(rep("", times=13))
+
+round(inv_C %*% C,3) 
+```
+
+```{r}
+# sustitución de la diagonal
+for(i in 1:length(diag(C))){
+  diag(C)[i] <- sum((inv_C[1:13,i])^2)
+}
+
+# escalado
+diag(C) <- diag(C)/max(diag(C)) 
+diag(C)
+```
+
+```{r}
+evc <- eigen(C)
+eval <- round(evc$values,4)
+evec <- round(evc$vectors,4)
+```
+
+```{r}
+V <- evc$vectors
+D <- diag(evc$values)
+
+L <- V %*% D^(1/2)
+L_t <- D^(1/2) %*% t(V)
+
+R <- round(L %*% L_t, 3)
+```
+
+```{r}
+fact_6 <- round(L[,1:6], 3)
+rownames(fact_6) <- rownames(druguse.cor)
+colnames(fact_6) <- paste("PC",1:ncol(fact_6),sep="_")
+
+fact_6
+```
+
+Los loadings son parecidos a los del PFA con `principal`, sin embargo hay diferencias entre los valores (ver diferencias abajo). Lo más notable es que las diferencias son pequeñas en el primer componente, pero son considerables en los demás componentes, probablemente las diferencias son debidas a que no se han ajustando los demás componentes. 
+
+
+```{r}
+diferencias <- abs(pca_2$loadings[1:6]) - abs(fact_6)
+
+round(abs(diferencias), 2)
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# Referencias:
+[1] Dinu I, Potter JD, Mueller T, Liu Q, Adewale AJ, Jhangri GS, Einecke G, Famulski KS, Halloran P, and Yasui Y. (2007), Improving Gene Set Analysis of Microarray Data by SAM-GS, BMCBioinformatics, 8:242 <br />
+[2] B.S. Everitt (2005), An R and S-PLUS Companion to Multivariate Analysis. Springer.<br />
+[3] Chen-An Tsai, James J. Chen (2009), Multivariate analysis of variance test for gene set analysis, Bioinformatics, Volume 25, Issue 7, Pages 897-903.<br />
+[4] V.G. Tusher, R. Tibshirani and G. Chu (2001), Significance analysis of microarrays applied to the ionizing radiation response, Proceedings of the National Academy of Sciences, vol. 98-9, pag. 5116–5121.<br />

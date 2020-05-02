@@ -130,7 +130,7 @@ Se pretende asimilar, a través de la práctica con un [caso concreto](https://w
 
 Se pretende ubicar los genes diferencialmente expresados que cumplan con:
 \[ FDR < 0.1 \space \land \space log_2|FC| \ge 1\]
-est
+
 La intención de utilizar FDR es controlar el error tipo I. 
 El Fold Change se utiliza para determinar cuáles son los p valores más bajos.
 

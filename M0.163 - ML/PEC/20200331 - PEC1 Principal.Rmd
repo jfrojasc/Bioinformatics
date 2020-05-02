@@ -1,0 +1,560 @@
+---
+title: "PEC 1 - Informe: Algoritmo *k*NN"
+author: "Jose Felix Rojas Cabeza"
+output:
+  pdf_document:
+    toc: yes
+  word_document:
+    toc: yes
+  html_document:
+    code_folding: show
+    theme: lumen
+    toc: yes
+    toc_float: yes
+params:
+  data: "C:/Users/josef/Dropbox/Documents/Personal/UOC/3er Cuatrimestre/M0.163-ML/Evaluacion/PEC1/data.csv"
+  date: !r Sys.Date()
+bibliography: referencias.bib
+---
+
+```{r setup, include=FALSE}
+require(knitr)
+# include this code chunk as-is to set options
+opts_chunk$set(comment = NA, prompt = TRUE, tidy = FALSE, 
+               fig.width = 7, fig.height = 7,echo = TRUE,
+               fig.align='center', set.seed(123),
+               message = FALSE, warning = FALSE, cache=TRUE)
+Sys.setlocale("LC_TIME", "C")
+```
+
+```{r, echo=FALSE}
+htmltools::img(src = knitr::image_uri( "logo_uoc_petit.png"), 
+               alt = 'logo UOC', 
+               style = 'position:absolute; top:0; right:0; padding:10px;')
+```
+
+```{r echo=FALSE}
+# verifica si los paquetes están instalados: 
+# en caso de no estarlo, los instala; si están instalados, no hace nada.
+if(!(require(caret))) install.packages("caret") 
+# caret tiene:
+#sensitivity() ; Specificity() ; posPredValue() o precision y sensitivity() = recall. 
+#CreateDataPartition() ; createFolds(data$dependant_variable, k = 10)
+if(!(require(class))) install.packages("class")
+if(!(require(gmodels))) install.packages("gmodels")
+if(!(require(vcd))) install.packages("vcd") #Kappa()
+if(!(require(ROCR))) install.packages("ROCR")
+if(!(require(OpenImageR))) install.packages("OpenImageR")
+if(!(require(reader))) install.packages("reader")
+```
+
+`r params$date`
+
+# 1. El Algoritmo *k*NN
+
+A pesar de que este algoritmo es uno de los más sencillos, es utilizado ampliamente [@lantz2013machine]. A continuación se indican algunas de sus fortalezas y debilidades: 
+
+| Fortalezas                                                      | Debilidades                                                                                                             |
+|-----------------------------------------------------------------|-------------------------------------------------------------------------------------------------------------------------|
+| Simple y efectivo                                               | No produce un modelo, limitando la capacidad de entender cómo se relacionan las características de los datos y la clase |
+| No hace suposiciones sobre la distribución de datos subyacente  | Requiere la selección de un *k* adecuado                                                                                |
+| La fase de entrenamiento es rápida                              | La fase de clasificación es lenta                                                                                       |
+|                                                                 | Las características nominales y datos faltantes requieren procesamiento adicional                                       |
+
+El algoritmo *k*NN funciona utilizando información sobre los *k* vecinos más cercanos (Nearest Neighbors, en inglés, por eso el nombre), para clasificar ejemplos no clasificados. La letra *k* es un término variable, implicando que cualquier número de vecinos más cercanos podría utilizarse. Luego de escoger *k*, el algoritmo requiere un dataset de entrenamiento, que consista de ejemplos que se han clasificado en diferentes cateogrías, marcadas por una variable nominal. Luego, para cada registro no clasificado, *k*NN identifica *k* registros en el dataset de entrenamiento que son los más cercanos en semejanza (lo que se evalúa por la distancia, que puede ser eucilidiana, o de Malahanobis en el caso más general). Para poder comparar entre variables de manera adecuada, los datos deben escalarse.
+
+Los pasos que se siguen en la práctica para implementar este algoritmo son:
+1. Recolección de datos
+2. Exploración y preparación de datos (incluye normalización)
+3. Creación de datasets de entrenamiento y prueba
+4. Entrenar un modelo en los datos
+5. Evaluar el desempeño del modelo
+6. Probar valores alternativos de *k*
+
+# 2. Desarrollo de archivo CSV 
+El archivo fue generado de acuerdo a las instrucciones especificadas.
+
+Se siguió la recomendación en la sección "De imagen a vector de las instrucciones", y se obtuvo un documento que se llamó `data.csv` para diferenciarlo del que fue proporcionado por el docente. A continuación se indican los comandos más relevantes utilizados:
+
+```
+# Ubicación del las imágenes
+path_rx = "C:/Users/josef/Documents/R_Docs/M0.163/PEC1/"
+
+# lista de imágenes
+t <- list.files(path_rx, pattern= ".png")
+
+# Caso de una sóla imagen
+library(OpenImageR)
+
+# 1. Leer la imagen
+read_1 <- readImage(paste0(path_rx, t[1], sep="")) 
+
+# 2. Convertir a escala de grises, con rgb_2gray()
+r2g_1 <- rgb_2gray(read_1)
+
+# 3. Redimensionar la imagen a 64x64 pixeles con resizeImage() 
+redim_1 <- resizeImage(r2g_1, 64, 64, 'nearest')
+
+# 4. Convertir la matriz a vector con as.vector()
+vec_1 <- as.vector(redim_1)
+
+# Caso 1000 imágenes
+
+# 01. Creación de arreglo para contener los datos 512x512x3
+# https://stackoverflow.com/questions/32766990/creating-a-three-dimensional-
+# array-from-a-data-frame-in-r (idea obtenida de este sitio)
+
+d <- as.data.frame( matrix( 1:(512*512*3), 512, 3) )
+M <- array( unlist(d), dim=c(512, 512, 3) ) 
+
+# 02. Lista de dataframes para guardar readImage[i] en bucle
+lista <- list(M,...,M) # se repite el arreglo mil veces
+
+# 03. Bucle 512x512x3
+for (i in 1:1000) {lista[[i]] <- readImage(paste0(path_rx, t[i]))}
+
+# 04. Creación de arreglo para contener los datos 512x512x1 (RGB)
+d <- as.data.frame( matrix( 1:(512*512), 512, 1 ))
+M2 <- array( unlist(d), dim=c(512, 512, 1) ) 
+r2g_data <- list(M2,...,M2) # se repite el arreglo mil veces
+
+# 05. Bucle para datos 512x512x1
+for (i in 1:1000) {r2g_data[[i]] <- rgb_2gray(lista[[i]])}
+
+# 06. Creación de arreglo para contener los datos 64x64x1
+d <- as.data.frame( matrix( 1:(64*64), 1, 1 ))
+M3 <- array( unlist(d), dim=c(64, 64, 1) ) 
+
+# 07. Lista de dataframes para guardar resizeImage[i] en bucle
+redim <- list(M3,...,M3) # se repite el arreglo mil veces
+
+# 08. Bucle para datos 64x64
+for (i in 1:1000) {redim[[i]] <- resizeImage(r2g_data[[i]], 64, 64, 'bilinear')}
+
+# 09. Creación de vector  
+M4 <- c( 1:4096 ) 
+vec <- list(M4,...,M4) # se repite el vector mil veces
+
+# 10. Bucle para datos vectoriales
+for (i in 1:1000) {vec[[i]] <- as.vector(redim[[i]])}
+
+# 11. data frame sin "cat" 
+# (se hizo traspuesto para tratar que fuese más eficiente en memoria)
+data_raw <- t(as.data.frame(vec))
+
+# 12. crear cat
+a <- c(rep(c("e", "n"), each=500))
+
+# 13. agregar la columna cat
+data <- cbind(a,(data_raw))
+
+# 14. Eliminación de los nombres de fila (se hizo por conveniencia)
+rownames(data) <- c(rep(c(""), each=1000)) 
+
+# No se realiza normalización porque el rango de los datos está entre 0 y 1. 
+```
+
+Nótese que se adjunta un archivo aparte, llamado `20200328-PEC1-parte2.Rmd`, con el cual se puede generar nuevamente el archivo de interés. la estrategia de utilizar `paste0(path_rx,t[i])` fue observada en un documento de [redes neurales y deep learning](https://agorastats.github.io/Notes/report_nets.html)[@ANN-DL].
+
+# 3. Desarrollo de clasificador *k*NN
+## 3. a) Lectura de `Rx_Torax_4097.csv`
+```{r}
+Rx_t <- read.csv(params$data, stringsAsFactors = FALSE)
+
+# eliminación de la columna de nombres (vaciada por conveniencia) y 
+# guardado en el mismo data set
+Rx_t <- Rx_t[-1]
+
+# Verificación de la estructura (7/4096 variables)
+head(Rx_t[,1:7], 5)
+```
+
+## 3. b) Descripción gráfica de los datos
+
+```{r echo=FALSE}
+# SET UP
+
+# Rx menos diagnóstico efusión
+Rx_md_e <- Rx_t[1:500,2:4097]
+# Rx menos diagnóstico normal  
+Rx_md_n <- Rx_t[501:1000,2:4097]
+# efusión
+Rx_e <- Rx_t[1:500,1]
+# normal
+Rx_n <- Rx_t[501:1000,1]
+```
+
+```{r echo=FALSE}
+mean_e <- c(1:4096)
+mean_n <- c(1:4096)
+sd_e <- c(1:4096)
+sd_n <- c(1:4096)
+```
+
+```{r echo=FALSE}
+# Generación de los datos
+for(i in 1:4096) {
+  mean_e[i] <- mean(Rx_md_e[1:500,i])
+}
+
+for(i in 1:4096) {
+  mean_n[i] <- mean(Rx_md_n[1:500,i])
+}
+
+for(i in 1:4096) {
+  sd_e[i] <- sd(Rx_md_e[1:500,i])
+}
+
+for(i in 1:4096) {
+  sd_n[i] <- sd(Rx_md_n[1:500,i])
+}
+```
+
+```{r fig.width = 7, fig.height = 7}
+par(mfrow = c(2,2))
+hist(mean_e, breaks = 52, main = "Medias - Efusión", col="red")
+hist(mean_n, breaks = 52, main = "Medias - Normal", col="brown")
+hist(sd_e, breaks = 70, main = "Desv. Est. - Efusión", col="orange")
+hist(sd_n, breaks = 70, main = "Desv. Est. - Normal", col="blue")
+```
+
+Se observa que las distribuciones de medias se comportan de manera similar en los extremos. Sin embargo, en el intervalo de 0.4 a 0.6 se notan diferencias. 
+
+Las desviaciones estándar tienen picos en 0.15, con distribuciones similares; pero la desviación en el caso de efusión tiene una amplitud algo mayor (nótese que en el gráfico amarillo se observa un pequeño pico cerca de 0.10). En el caso normal se ve una desviación más irregular, lo que se hace más obvio comparando el intervalo entre 0.20 y 0.30. 
+
+Mi interpretación de los resultados es que la forma como estamos midiendo normal y efusión deja semejanzas en las columas cerca de los extremos de la imagen, lo que explicaría la semejanza que se observa en los extremos de los gráficos de las medias. Interesantemente, esa semejanza se traslada bien a los histogramas de dispersión, y se nota que se pueden hacer distinciones interesantes, porque la variabilidad entre los grupos es notable. 
+
+## 3. c) Contraste de valores:
+
+```{r}
+# Caso de un sólo Valor
+mean_comparison_1 <- list()
+
+mean_comparison_1 <- t.test(Rx_md_e[1:500,1], Rx_md_n[1:500,1], 
+                            alternative = c("two.sided"), var.equal = F)
+
+# Caso de 4096 valores
+# Se comparan las 4096 variables, con H0: mean(e) = mean(n) para cada variable. 
+mean_comparison <- list()
+
+for(i in 1:4096) {
+ mean_comparison[[i]] <- t.test(Rx_md_e[1:500,i], Rx_md_n[1:500,i], 
+                                alternative = c("two.sided"), var.equal = F)  
+}
+```
+
+```{r}
+p_value <- c()
+
+for(i in 1:4096){
+  p_value[i] <- mean_comparison[[i]]$p.value
+}
+```
+
+```{r fig.width = 7, fig.height = 7}
+# Histograma
+hist(p_value, col="grey", main = "P-Valores de Rx_Torax")
+```
+La distribución de un histograma de los p-valores nos indica que es posible encontrar diferencias entre los grupos.
+
+
+### Procedimiento de Benjamini-Hochberg: 
+
+La primera aproximación para controlar la tasa de hallazgos falsos (False Discovery Rate, FDR) fue descrita por los autores anteriormente mencionados [@benjamini1995controlling]. Si se desea controlar que en un estudio con $n$ comparaciones el FDR no supere un porcentaje $\alpha$ hay que:
+
+1. Para un dado $\alpha$, encuentre el $max(k)$ tal que $P(k) \le \frac{k}{m}\cdot\alpha$.
+
+2. Rechazar la hipótesis nula (i. e. declarar descubrimientos) para todos los $H(i)$ para $i=1,\cdots,k$. 
+
+Geométricamente, esto corresponde a graficar el P(k) vs k (en los ejes x e y respectivamente), trazando la línea a través del origen con una pendiente $\frac{\alpha}{m}$, y declarando los descubrimientos para todos los puntos en la izquierda, hasta el último punto bajo la línea. 
+
+El procedimiento BH es válido cuando los m tests son independientes y también en varios escenarios de dependencia, pero no es universalmente válido. También satisface la desigualdad $E(Q) \le \frac{m_0}{m}\cdot\alpha\le\alpha$. 
+
+```{r}
+adjusted_pval <- p.adjust(p_value,method="BH")
+# http://sphweb.bumc.bu.edu/otlt/MPH-Modules/BS/R/R-Manual/R-Manual22.html
+```
+
+```{r}
+c3 <- sort(adjusted_pval)
+
+c3_2 <- head(c3, 26)
+```
+
+```{r}
+c2 <- list()
+
+for (i in 1:length(c3)) {
+c2[[i]] <- which(adjusted_pval == c3[i])
+}
+
+head(c2, 26)
+```
+
+```{r}
+# Lo he hecho a mano porque no se me ocurrió otra manera
+c2_2 <- c(2987, 2859, 2986, 2922, 3051, 2923, 1321, 3052, 1384, 1450, 
+          2924, 2985, 1000, 1063, 1064, 1127, 1190, 1255, 1449, 2860, 
+          2921, 2988, 1191, 1447, 2920, 3050)
+```
+
+```{r}
+c1 <- c()
+
+for(i in 1:length(c2_2)){
+  c1[i] <- mean_e[as.integer(c2_2[i])] - mean_n[as.integer(c2_2[i])] 
+}
+```
+
+```{r}
+library(knitr, quietly = TRUE)
+datos <- cbind(c2_2, c1, c3_2)
+
+kable(datos, col.names = c("Número", "Dif. Medias", "P-Valor"), 
+      align = c("c", "c", "c"), caption = "Contraste de Valores Medios")
+```
+
+
+
+## 3. d) Implementación del algoritmo *k*NN  
+
+### 3. d) 1. Datasets de entrenamiento y prueba:
+
+Utilizando la semilla aleatoria 123, separar los datos en dos partes, una parte para training (67 %) y una parte para test (33 %).
+
+```{R}
+# Semilla
+set.seed(123)
+
+# Train / Test (.67/.33)
+p <- .67
+
+n_train <- round(500*.67, 0) # 335
+n_test <- round(500*.33, 0)  # 165
+```
+
+```{r}
+# Todos los datos
+all <- data.frame()
+for(i in 1:1000){
+  all[i,1:4097] <- Rx_t[i,1:4097]
+}
+```
+
+```{r}
+# efusion 1:335
+train_1 <- data.frame()
+for(i in 1:335){
+  train_1[i,1:4097] <- Rx_t[i,1:4097]
+}
+```
+
+```{r}
+# normal 501:836
+train_2 <- data.frame()
+for(i in 1:335){
+  train_2[i+500,1:4097] <- Rx_t[i+500,1:4097]  
+}
+```
+
+```{r}
+train_2 <- narm(train_2)
+
+head(train_2[,1:6])
+tail(train_2[,1:6])
+```
+
+```{r}
+# efusion 336:500
+test_1 <- data.frame()
+for(i in (n_train+1):500){
+  test_1[i,1:4097] <- Rx_t[i,1:4097]  
+}
+```
+
+```{r}
+test_1 <- narm(test_1)
+
+head(test_1[,1:6], 5)
+tail(test_1[,1:6], 5)
+```
+
+```{r}
+# normal 836:1000
+test_2 <- data.frame()
+for(i in (501+n_train):1000){
+  test_2[i,1:4097] <- Rx_t[i,1:4097]  
+}
+```
+
+```{r}
+test_2 <- narm(test_2)
+
+head(test_2[,1:6], 5)
+tail(test_2[,1:6], 5)
+```
+
+```{r}
+# Comprobación de diumensiones
+dim(train_1)
+dim(train_2)
+dim(test_1)
+dim(test_2)
+```
+
+```{r}
+train_0 <- rbind(train_1, train_2)
+
+test_0 <- rbind(test_1, test_2)
+
+dim(train_0)
+dim(test_0)
+```
+
+```{r}
+set.seed(123)
+# Reordena las posiciones para que las muestras queden al azar
+
+shuffle_train <- c(sample(1:670))
+shuffle_test <- c(sample(1:330))
+```
+
+```{r}
+length(shuffle_test)
+length(shuffle_train)
+```
+
+```{r}
+
+train_shuffled <- data.frame()
+for(i in 1:length(shuffle_train)){
+  train_shuffled[i,1:4097] <- train_0[as.integer(shuffle_train[i]), 1:4097]  
+}
+```
+
+```{r}
+test_shuffled <- data.frame()
+for(i in 1:length(shuffle_test)){
+  test_shuffled[i,1:4097] <- test_0[as.integer(shuffle_test[i]), 1:4097]    
+}
+```
+
+```{r}
+train_labels <-c()
+for(i in 1:length(shuffle_train)){
+train_labels[i] <- train_shuffled[i , 1]
+}
+```
+
+```{r}
+test_labels <-c()
+for(i in 1:length(shuffle_test)){
+test_labels[i] <- test_shuffled[i , 1]
+}
+```
+
+```{r}
+dim(train_shuffled)
+dim(test_shuffled)
+```
+
+
+```{r}
+table(train_labels)
+table(test_labels)
+```
+```{r}
+train <- train_shuffled[ , 2:4097]
+test <- test_shuffled[ , 2:4097]
+
+
+dim(train)
+dim(test)
+```
+
+### 3. d) 2. Predicción de derrame
+
+Utilizar un *k*NN (*k* = 3, 5, 7, 11, 23, 45, 67) basado en el training para predecir que radiografia es normal o con derrame.
+```{r}
+library(class)
+pred_03 <- knn(train = train, test = test, cl = train_labels , k = 3)
+pred_05 <- knn(train = train, test = test, cl = train_labels , k = 5)
+pred_07 <- knn(train = train, test = test, cl = train_labels , k = 7)
+pred_11 <- knn(train = train, test = test, cl = train_labels , k = 11)
+pred_23 <- knn(train = train, test = test, cl = train_labels , k = 23)
+pred_45 <- knn(train = train, test = test, cl = train_labels , k = 45)
+pred_67 <- knn(train = train, test = test, cl = train_labels , k = 67)
+```
+
+```{r include=FALSE}
+p_03 <- CrossTable(x = test_labels, y = pred_03, prop.chisq=FALSE)
+p_05 <- CrossTable(x = test_labels, y = pred_05, prop.chisq=FALSE)
+p_07 <- CrossTable(x = test_labels, y = pred_07, prop.chisq=FALSE)
+p_11 <- CrossTable(x = test_labels, y = pred_11, prop.chisq=FALSE)
+p_23 <- CrossTable(x = test_labels, y = pred_23, prop.chisq=FALSE)
+p_45 <- CrossTable(x = test_labels, y = pred_45, prop.chisq=FALSE)
+p_67 <- CrossTable(x = test_labels, y = pred_67, prop.chisq=FALSE)
+
+```
+
+```{r}
+# se muesta sólo $t para ahorrar espacio
+p_03$t # 0.318 true positive
+p_05$t # 0.309 true positive
+p_07$t # 0.321 true positive
+p_11$t # 0.339 true positive
+p_23$t # 0.342 true positive
+p_45$t # 0.361 true positive
+p_67$t # 0.372 true positive
+```
+
+### 3. d) 3. Curvas ROC
+
+Para cada k realizar una curva ROC que muestre además el AUC.
+
+```{r fig.height=12, fig.width=12}
+# caso varias curvas
+library(ROCR)
+library(pROC)
+ks <- c( 3, 5, 7, 11, 23, 45, 67)
+
+par(mfrow=c(2,2))
+
+for(i in ks){
+  test_pred <- knn(train=train, test=test, cl=train_labels, k= i, prob = T)
+  prob <- attr(test_pred, "prob")
+  
+  prob_tf <- ifelse(test_pred=="e", prob, 1-prob)
+  
+  area <- auc(test_labels, prob_tf)
+  
+  p_knn <- prediction(prob_tf, test_labels, 
+                      label.ordering = c("n", "e"))
+  p_knn <- performance(p_knn, "tpr", "fpr")
+  
+  plot(p_knn, avg="threshold", colorize=T, lwd=2, 
+       main= paste("Curva ROC, k:", i, " AUC = ", 
+                   round(area,4)))
+  abline(a=0, b=1, lwd=1, lty=2)
+}  
+```
+
+### 3. d) 4. Evaluación de la clasificación 
+
+Comentar los resultados de la clasificación en función de la curva ROC y del número de falsos positivos, falsos negativos y error de clasificación obtenidos para los diferentes valores de k. La clase que será asignada como positiva es la e.
+
+La curva ROC indica que la clasificación con los distintos algoritmos *k*NN es mejor que hacer la clasificación al azar, pero el rendimiento de los primeros 4 algortimos fue pobre, mientras que el de los últimos 3 fue aceptable. 
+
+| Valor k  | Falsos negativos  | Falsos positivos  | Porcentaje clasificado incorrectamente     |
+|----------|-------------------|-------------------|--------------------------------------------|
+|`r ks[1]` | `r p_03$t[2]`     | `r p_03$t[3]`     | `r (p_03$t[2]+p_03$t[3])/sum(p_03$t[1:4])` |
+|`r ks[2]` | `r p_05$t[2]`     | `r p_05$t[3]`     | `r (p_05$t[2]+p_05$t[3])/sum(p_05$t[1:4])` |
+|`r ks[3]` | `r p_07$t[2]`     | `r p_07$t[3]`     | `r (p_07$t[2]+p_07$t[3])/sum(p_07$t[1:4])` |
+|`r ks[4]` | `r p_11$t[2]`     | `r p_11$t[3]`     | `r (p_11$t[2]+p_11$t[3])/sum(p_11$t[1:4])` |
+|`r ks[5]` | `r p_23$t[2]`     | `r p_23$t[3]`     | `r (p_23$t[2]+p_23$t[3])/sum(p_23$t[1:4])` |
+|`r ks[6]` | `r p_45$t[2]`     | `r p_45$t[3]`     | `r (p_45$t[2]+p_45$t[3])/sum(p_45$t[1:4])` |
+|`r ks[7]` | `r p_67$t[2]`     | `r p_67$t[3]`     | `r (p_67$t[2]+p_67$t[3])/sum(p_67$t[1:4])` |
+
+Cuando se trata de diagnósticos, los casos de falsos negativos pueden ser extremadamente costosos. En este caso, una persona con efusión pleural creería que no tiene inconvenientes, lo que podría resultar en un problema posteriormente. Los falsos positivos dan una "falsa alarma" a quien recibe el diagnóstico. Si bien es cierto que son menos peligrosos que un falso negativo, lo ideal sería evitarlos, para no generar carga financiera para el sistema médico, o estrés para el paciente, debido a más pruebas o tratamientos.[@lantz2013machine]
+
+# Referencias 

@@ -785,7 +785,7 @@ par(mar=c(6,2,1,1))
 # short names
 colnames(pseudocounts) <- as.character(dg_list_2$samples$short_name)
 
-boxplot(pseudocounts, las=2, col=(c(rep("lightblue",10),rep("blue",10),rep("navyblue",10))), main="Figura .")
+boxplot(pseudocounts, las=2, col=(c(rep("lightblue",10),rep("blue",10),rep("navyblue",10))), main="Figura 11. Boxplot de las pseudocuentas")
 ```
 
 ## MA plots<Br />
@@ -810,7 +810,7 @@ A = (x+y)/2
 df_ma = data.frame(A, M)
 
 ggplot(df_ma, aes(x = A, y = M)) + geom_point(size = 1.5, alpha = 1/5) +
-geom_hline(color = "blue3", yintercept = 0) + stat_smooth(se = FALSE, method = "loess", color = "red3") + ggtitle("Figura 11. MA plot de NIT vs SFI")
+geom_hline(color = "blue3", yintercept = 0) + stat_smooth(se = FALSE, method = "loess", color = "red3") + ggtitle("Figura 12. MA plot de NIT vs SFI")
 ```
 
 ```{r}
@@ -827,7 +827,7 @@ A = (x+y)/2
 df_ma = data.frame(A, M)
 
 ggplot(df_ma, aes(x = A, y = M)) + geom_point(size = 1.5, alpha = 1/5) +
-geom_hline(color = "blue3", yintercept = 0) + stat_smooth(se = FALSE, method = "loess", color = "red3") + ggtitle("Figura 12. MA plot de SFI vs ELI") 
+geom_hline(color = "blue3", yintercept = 0) + stat_smooth(se = FALSE, method = "loess", color = "red3") + ggtitle("Figura 13. MA plot de SFI vs ELI") 
 ```
 
 ```{r}
@@ -844,11 +844,11 @@ A = (x+y)/2
 df_ma = data.frame(A, M)
 
 ggplot(df_ma, aes(x = A, y = M)) + geom_point(size = 1.5, alpha = 1/5) +
-geom_hline(color = "blue3", yintercept = 0) + stat_smooth(se = FALSE, method = "loess", color = "red3") + ggtitle("Figura 13. MA plot de NIT vs ELI")
+geom_hline(color = "blue3", yintercept = 0) + stat_smooth(se = FALSE, method = "loess", color = "red3") + ggtitle("Figura 14. MA plot de NIT vs ELI")
 ```
 
 ```{R fig.height=20, fig.width=20}
-plotMDS(pseudocounts, pch=c(1:6,15,17,18,19), col=c(rep("red",10), rep("blue",10), rep("green",10)), cex=2, main="Figura 2. Gráfico de escalamiento multidimensional de distancias entre perfiles de expresión génica", xlim=c(-5,5), ylim=c(-2,2))
+plotMDS(pseudocounts, pch=c(1:6,15,17,18,19), col=c(rep("red",10), rep("blue",10), rep("green",10)), cex=2, main="Figura 15. Gráfico de escalamiento multidimensional de distancias entre perfiles de expresión génica", xlim=c(-5,5), ylim=c(-2,2))
 legend(-5.36, 2.15, legend=dg_list_2$samples$short_name, pch = c(1:6,15,17,18,19), col=c(rep("red",10), rep("blue",10), rep("green",10)) )
 ```
 
@@ -1008,7 +1008,7 @@ El análisis de los histogramas de p-valor coincide con lo que indican los smear
 # 5. Discusión <Br />
 # 5.1. Limitaciones:  <Br />
 En todos los casos donde se hacen análisis de proximidad de los grupos, se observa que no hay diferencias claras entre los mismos. Sin embargo, algunos genes mostraron patrones de expresión diferencial. <Br />
-Se observó un patrón de datos no deseable en el histograma de SFI vs ELI. 
+Se observó un patrón de datos no deseable en el histograma de SFI vs ELI. <Br />
 
 # 6. Conclusión:  <Br />
 * Esta parte del trabajo no es requerimiento.
@@ -1022,7 +1022,6 @@ Se observó un patrón de datos no deseable en el histograma de SFI vs ELI.
 ```
 
 ```{R}
-
   
 ```
 

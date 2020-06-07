@@ -1,0 +1,552 @@
+---
+title: "Informe PEC 2"
+author: "José Félix Rojas Cabeza"
+subtitle: "Predicción de interacción péptido-MHCI con Algoritmos ANN y SVM"
+date: "`r format(Sys.time(), '%d de %B de %Y')`"
+output: 
+  pdf_document:
+    toc: yes
+  word_document:
+    toc: yes
+  html_document:
+    code_folding: show
+    theme: lumen
+    toc: yes
+    toc_float: yes
+params:
+  file_1: "./data/peptidos.csv"
+  file_2: "./data/peptidos_transf_one_hot.csv"
+  ptrain: 0.6666667
+  seed_train: 123
+  seed_nn_svm: 1234567
+bibliography: referencias.bib
+---
+```{r setup, include=FALSE}
+library(knitr)
+# include this code chunk as-is to set options
+opts_chunk$set(comment = NA, prompt = TRUE, tidy = FALSE, 
+               fig.width = 7, fig.height = 7,echo = TRUE,
+               fig.align='center',
+               message = FALSE, warning = FALSE, cache=TRUE)
+Sys.setlocale("LC_TIME", "C")
+```
+
+# 1. Explicación del funcionamiento y características de ANN y SVM.<br />
+
+## Algoritmo Red Neuronal Artificial (ANN)<br />
+
+Las redes neuronales artificiales están inspiradas en las redes neuronales como las que tiene el cerebro. Las neuronas se sustituyen por nodos que reciben y envian señales (información). Se crea una red con diferentes nodos y capas interconectados para procesar la información. Cada capa esta formada por un grupo de nodos que transmite la información a los otros nodos de las capas siguientes. <br />
+
+Una red neuronal artificial se caracteriza por:<br />
+
+* La topología: Esto corresponde al número de capas y de nodos. Además de la dirección en que se la información pasa de un nodo al siguiente, dentro de capas o entre capas.<br />
+
+* La función de activación: Función que recibe un conjunto de entradas e integra la señales para transmitir la información a otro nodo.<br />
+
+* El algoritmo de entrenamiento: Establece la importancia de cada conexión para transmitir o no la señal a los nodos correspondientes. El más usado es el algoritmo “backpropagation”. El nombre indica que para corregir los errores de predicción va hacia atras de la red corrigiendo los pesos de los nodos.<br />
+
+Las fortalezas y debilidades de este algoritmo son:<br />
+
+```{r echo=FALSE}
+fortalezas <- c("Se puede adaptar a problemas de clasificación o predicción numérica", "Capaz de modelar patrones más complejos que casi cualquier algoritmo",
+"Hace pocas suposiciones sobre las relaciones subyacentes de los datos")
+
+debilidades <- c("Extremadamente intenso computacionalmente.Lento para entrenar,particularmente si la topología de la red es compleja","Muy propenso a sobreajustar los datos de entrenamiento","Resulta en un modelo de caja negra compleja que es difícil, si no imposible, de interpretar")
+
+datos <- cbind(fortalezas, debilidades)
+library(kableExtra)
+column_spec(knitr::kable(datos, col.names = c("Fortalezas",  "Debilidades"), 
+      align = c("l", "l", "l"), caption = "Fortalezas y debilidades de algoritmo ANN"), column = c(1,2) , width = "3in")
+```
+
+## Algoritmo Support Vector Machine (SVM) <br />
+
+Una "máquina de vectores de soporte" (SMV, por sus siglas en inglés), puede imaginarse como una superficie que crea un límite entre puntos de datos multidimensionales que representan ejemplos y los valores de sus características. La meta de un SVM es crear un límite plano, un **hiperplano**, que divida el espacio para crear particiones con bastante homogenidad en cada lado, combinando aspectos de kNN y modelos de regresión lineal. La combinación es muy poderosa, lo que permite a los SVM modelar relaciones muy complejas[@lantz2013machine].<br />
+
+Las SVMs pueden adaptarse para ser utilizadas con prácticamente cualquier tipo de tarea de aprendizaje, incluyendo clasificación y predicción numérica. Muchos de los éxitos clave del algoritmo se han conseguido en reconocimiento de patrones. Las aplicaciones más notables incluyen[@lantz2013machine]:<br />
+
+* Clasificación de los datos de expresión génica de microarrays en el campo de la bioinformática para identificar el cáncer u otras enfermedades genéticas.<br />
+
+* Categorización de texto, como la identificación del idioma utilizado en un documento o la clasificación de documentos por tema.<br />
+
+* La detección de eventos raros pero importantes como fallas en el motor de combustión, brechas de seguridad o terremotos.<br />
+
+```{r echo=FALSE}
+fortalezas <- c("Uso en predicción y clasificación","Uso bastante extendido",
+"Funciona de forma óptima con ruido", "Facilidad de uso, comparado con ANN")
+
+debilidades <- c("Requiere especificar parámetro C  y función de kernel (ensayo y error)","Lento de entrenar, sobre todo a medida que aumenta el número de características","El funcionamiento interno es difícil de interpretar, Como en el caso de ANN")
+
+datos <- cbind(fortalezas, debilidades)
+library(kableExtra)
+column_spec(knitr::kable(datos, col.names = c("Fortalezas",  "Debilidades"), 
+      align = c("l", "l", "l"), caption = "fortalezas y debilidades de algoritmo SVM"), column = c(1,2) , width = "3in")
+```
+
+# 2. Leer los datos de peptidos.csv y hacer una breve descripción de ellos. 
+Incluir en esta descripción el patrón de cada clase de péptido mediante la representación de su secuencia logo (https://en.wikipedia.org/wiki/Sequence_logo). Para realizar esta representación se puede usar el paquete ggseqlogo descargable desde github.<br />
+
+```{r}
+peptides <- read.csv2(params$file_1)
+dim(peptides)
+```
+
+Se decidió utilizar el esquema de colores "custom".    
+```{r echo=FALSE}
+#aminoacids <- c("K","H","R","D","E","S","T","C","N","Q","G","P","A","V","I","L","M","F","Y","W")
+
+#groups <- c("gr_1","gr_2","gr_3","gr_4","gr_5","gr_6","gr_7","gr_8","gr_9","gr_10","gr_11","gr_12","gr_13","gr_14","gr_15","gr_16","gr_17","gr_18","gr_19","gr_20")
+
+
+
+#col <- c("blue","blue","blue",
+#         "red","red",
+#         "steelblue","steelblue","steelblue","steelblue","steelblue",
+#         "green","green","green","green","green","green","green",
+#         "seagreen","seagreen","seagreen")
+
+#color <- make_col_scheme(chars=aminoacids, groups=groups, cols=col)
+```
+
+```{r}
+library(ggplot2)
+library(ggseqlogo)
+
+# Clases de péptido:
+table(peptides$label)
+
+indices_n <- which(peptides$label=="NB")
+indices_s <- which(peptides$label=="SB")
+
+nb <- peptides$sequence[indices_n]
+sb <- peptides$sequence[indices_s]
+
+length(nb) # no interaction
+length(sb) # interaction
+```
+
+```{r}
+library(ggseqlogo)
+# https://omarwagih.github.io/ggseqlogo/#accepted_input_formats
+g_l <- geom_logo(as.character(nb))
+
+ggplot() + g_l + theme_logo() + ggtitle("Figura 1.- Oligopéptidos tipo NB")
+```
+
+```{r}
+library(ggseqlogo)
+g_l_2 <- geom_logo(as.character(sb))
+
+ggplot() + g_l_2 + theme_logo() + ggtitle("Figura 2.- Oligopéptidos tipo SB")
+```
+
+Se revsó en la literatura la clasificación de los aminoácidos[@nelson2009lehninger]: y coindcide con la clasificación por naturaleza bioquímica de los residuos. En los residuos tipo NB no se observa una tendencia clara, debido a que la frecuencia cambia en diferentes posiciones, puede ser que el péptido provenga de una región variable o poco seleccionada. En los residuos tipo SB se observa más homogeneidad, la posición 2 y 9 tienen residuos no polares (Leucina, Valina, Metionina, Alanina, Isoleucina) mientras que los otros residuos tienen frecuencias más variables. Llama la atención la presencia de algunos residuos polares en la primera parte del oligo. <br />
+
+# 3.  Desarrollar una función en R que implemente la codificación "one-hot" (one-hot encoding) de las secuencias <br />
+
+```{r}
+p_2_one_hot <- read.csv2(params$file_2)
+dim(p_2_one_hot)
+```
+
+```{r}
+aa_alphabet <- c("A","R","N","D","C","Q","E","G","H","I",
+                 "L","K","M","F","P","S","T","W","Y","V")
+
+one_hot<-function(sq, alphabet){
+y<-unlist(strsplit(sq,""))
+sapply(y,function(x){match(alphabet,x,nomatch=0)})
+}
+```
+
+# 4. Transformar las secuencias de aminoácidos en vectores numéricos usando la función de transformación desarrollada en el punto anterior <br />
+```{r}
+# Espacio reservado para hacer la conversión a vector.  
+
+head(peptides)
+```
+
+```{r}
+chr_seq <- as.character(peptides$sequence)
+o_h <- t(one_hot(chr_seq, aa_alphabet))
+```
+
+```{r}
+# formato vectorial
+o_h[1:9,]
+```
+
+```{r}
+A <- as.data.frame(o_h)
+```
+
+```{r}
+o_h <- t(o_h)
+dim (o_h) <- prod(dim(o_h))
+o_h[1:180]
+```
+
+```{r}
+M <- matrix(o_h, ncol=180, byrow = T)
+```
+
+```{r}
+# igualdad de M y p_2_one_hot 
+table(p_2_one_hot == M)
+```
+
+# 5. Desarrollar un código en R que implemente un clasificador de red neuronal artificial. El código en R debe: <br />
+
+(a) Leer los datos transformados. En caso de no haber podido realizar la función se dispone del fichero peptidos_transf_one_hot.csv.<br />
+
+(b) Utilizando la semilla aleatoria 123, separar los datos en dos partes, una parte para training (67%) y una parte para test (33%).<br />
+
+(c) Antes de ejecutar cada uno de los modelos de clasificacion que se piden a continuación, poner como semilla generadora el valor 1234567.<br />
+
+(d) Crear dos modelos de red neuronal artificial de una sola capa oculta con 1 nodo y 3 nodos, respectivamente. Aplicar los datos de training para ajustar los modelos y posteriormente, predecir si la secuencia peptídica interacciona o no con MHCI en los datos del test.<br />
+
+(e) Comentar los resultados de la clasificación en función de los valores generales de la clasificación como "accuracy" y otros. Comparar los resultados de clasificación obtenidos para los diferentes valores de nodos usados en la capa oculta.<br />
+
+(f) Usar el paquete caret modelo ‘mlp‘ para implementar la arquitectura de 3 nodos en la capa oculta, usando 5-fold crossvalidation. Comentar los resultados.<br />
+
+### Dimensión de los datos <br />
+
+```{r}
+dim(p_2_one_hot)
+```
+
+### Preparación de los datos <br />
+```{r}
+set.seed(params$seed_train) #123
+# considerando que los datos están entre 0 y 1, inclusive, no deben normalizarse
+# creación de variables binarias
+
+#int <-  peptides$label=="SB"  # interaction
+#n_int <- peptides$label=="NB" # no interaction
+
+#int_index <- which(peptides$label=="SB")
+#n_int_index <- which(peptides$label=="NB")
+
+# creación de variables binarias 
+SB <- peptides$label== "SB"
+NB <- peptides$label== "NB"
+
+data <- cbind(p_2_one_hot, SB, NB)
+```
+
+```{r}
+# partición de los datos:
+n <- nrow(data)
+n_train <- 2/3
+
+# Separación de los datos
+train <- sample(n, round((n*n_train),0))
+
+data_train <- data[train,]
+data_test <- data[-train,]
+```
+
+Detalle de las últimas 5 columnas de los dos sets <br />
+```{r}
+tail(data_train[,178:182],4)
+tail(data_test[,178:182],4)
+```
+
+
+
+Se realiza una extracción de los datos aleatoriamente de `r round(n_train*100,2)`% de todas las observaciones, `r dim(data[train,])[1]`, para entrenar al modelo y del resto, `r dim(data[-train,])[1]` para evaluarlo (test).<br />
+
+### Entrenamiento del modelo en `data_train` <br />
+```{r}
+set.seed(params$seed_nn_svm)
+# En caso de que no se tengan los paquetes, esto los solicita, 
+# y si no están los instala
+if(!(require(neuralnet))) install.packages("neuralnet") 
+if(!(require(NeuralNetTools))) install.packages("NeuralNetTools")
+
+library(neuralnet)
+library(NeuralNetTools)
+
+frmla = SB+NB ~ .
+ 
+ # una sóla neurona escondida
+ data_model_1 <- neuralnet(frmla, data=data_train, hidden=1, linear.output = F)
+ 
+ # tres neuronas escondidas
+ data_model_3 <- neuralnet(frmla, data=data_train, hidden=3, linear.output = F)
+```
+
+### Evaluación del modelo <br />
+Luego de obtenidos los modelos, evaluamos su rendimiento con `data_test` utilizando la función `compute()`.<br />
+
+Se utilizó neuralnet [@noauthororeditor]
+
+#### 1 nodo: <br />
+```{r}
+library(neuralnet)
+model_result_1 <- compute(data_model_1, data_test[,1:180])
+mr_1_nr <- model_result_1$net.result
+```
+
+```{r}
+#model_result_1_nr <- model_result_1$net.result
+
+max_idx <- function(X){return(which(X == max(X) ) )}
+ 
+# index
+idx_1 <- apply(mr_1_nr, 1, max_idx)
+pred_1 <- c("SB", "NB")[idx_1]
+res_1 <- table(pred_1, peptides$label[-train])
+```
+
+```{r}
+if(!(require(caret))) install.packages("caret") 
+set.seed(params$seed_nn_svm)
+
+library(caret)
+c_mat1 <- caret::confusionMatrix(res_1, positive="NB") # sin interacción
+c_mat1
+```
+
+El modelo con 1 nodo oculto obtiene una precisión de `r round(c_mat1$overall[1],4)*100`%, y una sensitividad y especificidad de `r round(c_mat1$byClass[1],4)*100`% y `r round(c_mat1$byClass[2],4)*100`% respectivamente. <br />
+
+```{r}
+plot(data_model_1, main= "Modelo con 1 nodo")
+```
+
+#### 3 nodos: <br />
+
+```{r}
+library(neuralnet)
+model_result_3 <- compute(data_model_3, data_test[,1:180])
+mr_3_nr <- model_result_3$net.result
+```
+
+```{r}
+# index
+idx_3 <- apply(mr_3_nr, 1, max_idx)
+pred_3 <- c("SB", "NB")[idx_1]
+res_3 <- table(pred_3, peptides$label[-train])
+```
+
+```{r}
+if(!(require(caret))) install.packages("caret") 
+set.seed(params$seed_neuralnet)
+library(caret)
+c_mat3 <- caret::confusionMatrix(res_3, positive="NB") # sin interacción
+c_mat3
+```
+
+El modelo con 3 nodos oculto obtiene una precisión de  `r round(c_mat1$overall[1],4)*100`%, y una sensitividad y especificidad de `r round(c_mat1$byClass[1],4)*100`% y `r round(c_mat1$byClass[2],4)*100`% respectivamente. Es decir, no se observaron diferencias entre los desempeños de 3 nodos y un nodo. <br />
+
+```{r}
+plot(data_model_3)
+```
+
+#### `caret` - 3 nodos, 5 fold crossvalidation <br />
+```{r}
+set.seed(params$seed_nn_svm)
+library(caret)
+library(RSNNS)
+
+#p_2_one_hot # el dataset sin la categoría a predecir
+#peptides$label # el outcome recomendado por caret
+label_train <- peptides$label[train]
+label_test <- peptides$label[-train]
+
+sb_nb <- cbind(data$SB, data$NB) # positive class "NB"
+n_sb_nb <- cbind(as.numeric(data$SB), as.numeric(data$NB))
+```
+
+Se utilizó caret [@c_wp], [@JSSv028i05]:
+```{r}
+mlp_model <- caret::train(x=p_2_one_hot, y=peptides$label,
+                          method="mlp", size=3,
+                          trControl=trainControl(method="cv", number=5),
+                          trace=F)
+```
+
+```{r}
+mlp_model
+```
+
+```{r}
+plot(mlp_model, main= "5-fold crossvalidation")
+```
+En el modelo "mlp" con crossvalidation y 5 nodos, se observa menor exactitud (`r mlp_model$results[2,3]`) con 5 nodos.
+
+# 6. Desarrollar un código en R que implemente un clasificador de SVM. El código en R debe: <br />
+
+(a) Leer los datos transformados. En caso de no haber podido realizar la función se dispone del fichero `peptidos_transf_one_hot.csv`.<br />
+
+(b) Utilizando la semilla aleatoria 123, separar los datos en dos partes, una parte para training (67%) y una parte para test (33%).<br />
+
+(c) Antes de ejecutar cada uno de los modelos de clasificacion que se piden a continuación, poner como semilla generadora el valor 1234567.<br />
+
+(d) Utilizar la función lineal y la RBF para ajustar un modelo de SVM basado en el training para predecir si la secuencia peptídica interacciona o no con MHCI en los datos del test.<br />
+
+(e) Comentar los resultados de la clasificación en función de los valores generales de la clasificación como "accuracy" y otros. Comparar los resultados de clasificación obtenidos para los diferentes funciones kernel usadas.<br />
+
+(f) Usar el paquete caret modelo svmRBF para aplicar el algoritmo de SVM con 5-fold crossvalidation.<br />
+
+Comentar los resultados.<br />
+
+### Datos:<br />
+
+Los datos a utilizar los mismos de la parte anterior:<br />
+
+
+```{r}
+indices_nb <- which(data$NB)
+indices_sb <- which(data$SB)
+
+# No muestras t
+n_nb <- round(n_train*length(indices_nb),0)
+
+# No muestras t
+n_sb <- round(n_train*length(indices_sb),0)
+
+# aprox 66% de los datos
+set.seed(params$seed_train)
+rnd_nb <- sample(indices_nb, n_nb)
+rnd_sb <- sample(indices_sb, n_sb)
+
+# train
+#rnd_g <- sample(1:(ncol(data)-1), nrow(data))
+
+# Datasets
+data_nb <- data[rnd_nb, ]     
+data_sb <- data[rnd_sb, ]   
+
+```
+
+```{r}
+label <- peptides$label
+data_2 <- cbind(p_2_one_hot, label)
+```
+
+```{r}
+dim(data_2)
+```
+
+#### Creación de datasets de entrenamiento (train) y prueba (test)<br />
+```{r}
+n <- nrow(data_2)
+n_train <- params$ptrain
+set.seed(params$seed_train)
+ 
+train <- sample(n, floor(n*n_train))
+ 
+data_train_2 <- data_2[train,]
+data_test_2 <- data_2[-train,]
+```
+
+```{r}
+head(data_train_2[,177:181],4)
+head(data_test_2[,177:181],4)
+```
+
+#### Entrenamiento del modelo en los datos: `kernlab::ksvm`<br />
+```{r}
+if(!(require(kernlab))) install.packages("kernlab")
+library(kernlab)
+
+set.seed(params$seed_nn_svm)
+
+lmod <- ksvm(label ~ ., data=data_train_2, kernell="vanilladot")
+ 
+lmod
+```
+
+#### Predicción y Evaluación del desempeño del modelo lineal<br />
+```{r}
+pred_lmod <- predict(lmod, data_test_2)
+```
+
+```{r}
+library(caret)
+ 
+# Crosstable
+ct <- table(pred_lmod, data_test_2$label)
+(cm_1 <- caret::confusionMatrix(ct, positive="NB"))
+```
+
+El modelo SVM lineal con categoría positiva "NB" tiene una precisión de `r cm_1$overall[1]`, una sensibilidad de `r cm_1$byClass[1]` y especificidad de `r cm_1$byClass[2]`.<br />
+
+#### Entrenamiento del modelo en los datos: `RSNNS::rbf` <br />
+
+Se utilizó RSNNS [@RSNNS]
+```{r}
+library(RSNNS)
+set.seed(params$seed_nn_svm)
+
+rbf_model <- rbf(x=data_train_2[,1:180], y=as.numeric(data_train_2$label), size = c(5), maxit=1000)
+```
+
+```{r}
+pred_rbf <- predict( rbf_model, data_test_2[,1:180] )
+```
+
+```{r}
+ct_rbf <- table(pred_lmod, data_test_2$label)
+```
+
+```{r}
+(cm_rbf <- caret::confusionMatrix(ct_rbf, positive="NB"))
+```
+
+El modelo RBF con categoría positiva "NB" tiene una precisión de `r cm_rbf$overall[1]`, una sensibilidad de `r cm_rbf$byClass[1]` y especificidad de `r cm_rbf$byClass[2]`. Es el mismo resultado que el del modelo anterior. <br />
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+#### Entrenamiento del modelo en los datos: `caret` modelo `svmRBF` con 5-fold crossvalidation .<br />
+```{r}
+library(caret)
+radial_mod <- caret::train(x=p_2_one_hot, y=peptides$label,method="svmRadial",
+                           size=3,trControl=trainControl(method="cv",
+                                                         number=5),trace=F)        
+```
+
+```{r}
+radial_mod
+```
+
+```{r}
+plot(radial_mod)
+```
+En el modelo "svmRadial" con crossvalidation y 5 nodos, se observa la mayor exactitud (`r radial_mod$results[2,3]`) con un costo de 1.
+
+### Comentario de todos los modelos:
+Ambos modelos se comportaron de manera muy precisa (exactitud > 0.99), a pesar de la varibilidad de condiciones. Sin embargo, es difícil entender cómo se llega a los resultados, debido a que los algoritmos utilizados ofuscan el proceso dentro de una "caja negra": sea un conjunto de capas ocultas o un hiperplano que divide de la mejor manera posible dos conjuntos de puntos. Además, la matemática detrás de los cálculos es avanzada [@lantz2013machine]. Por suerte, la aplicación es menos complicada que la matemática subyacente.
+
+```{r echo=FALSE}
+Algoritmo <- c("ANN","ANN","ANN","SVM","SVM","SVM")
+Modelo <- c("1 nodo","3 nodos","MLP, 3 nodos","lineal","Gausiano (RBF)","Gausiano (RBF)")
+Entrenamiento <- c("2:1 (66%:33%)","2:1 (66%:33%)","CV 5x","2:1 (66%:33%)","2:1 (66%:33%)","CV 5x")
+Exactitud <- c("0.9989","0.9989","0.9979","0.9949","0.9949","0.9957")
+Kappa <- c("0.9977","0.9977","0.9958","0.9898","0.9898","0.9914")
+
+
+datos <- cbind(Algoritmo, Modelo, Entrenamiento, Exactitud, Kappa )
+kable(datos, col.names = c("Algoritmo", "Modelo", "Train:Test", "Exactitud", "Kappa"), align = c("l", "l", "l", "l", "l"), caption = "Resultados obtenidos con los diferentes modelos")
+```
+
+En este caso, los modelos sencillos (1 nodo y lineal) se desempeñaron bastante bien. Aunque utilizando SVM, el método que utiliza *five-fold crossvalidation* da mejores resultados, están suficientemente cerca del modelo simple para afirmar que es suficiente con utilizar el modelo lineal. 
+
+Parece que la codificación "one hot" es bastante útil para aumentar la exactitud del modelo, posiblemente porque la ortonormalización del sistema implícita en el uso de one hot facilita la separación de las categorías. 
+
+# Referencias

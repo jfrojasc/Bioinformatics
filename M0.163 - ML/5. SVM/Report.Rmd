@@ -1,0 +1,376 @@
+---
+title: "6. SVM"
+author: "José Félix Rojas Cabeza"
+subtitle: "Predicción del tipo de tejido normal/tumoral en cáncer de colon utilizando el algoritmo Support Vector Machines"
+date: "`r format(Sys.time(), '%d de %B de %Y')`"
+output: 
+  html_document:
+    code_folding: show
+    theme: lumen
+    toc: yes
+    toc_float: yes
+  word_document:
+    toc: yes
+  pdf_document:
+    toc: yes
+params:
+  data: "./Data/colon2.csv"
+  ptrain: 0.6666667
+  seed_train: 12345
+  seed_smv: 1234567 # confirmar si va
+bibliography: referencias.bib
+---
+
+```{r setup, include=FALSE}
+require(knitr)
+# include this code chunk as-is to set options
+opts_chunk$set(comment = NA, prompt = TRUE, tidy = FALSE, 
+               fig.width = 7, fig.height = 7,echo = TRUE,
+               fig.align='center',
+               message = FALSE, warning = FALSE, cache=TRUE)
+Sys.setlocale("LC_TIME", "C")
+```
+
+```{r, echo=FALSE}
+htmltools::img(src = knitr::image_uri( "logo_uoc_petit.png"), 
+               alt = 'logo UOC', 
+               style = 'position:absolute; top:0; right:0; padding:10px;')
+```
+
+# Algoritmo Support Vector Machines (SVM)
+
+Una "máquina de vectores de soporte" (SMV, por sus siglas en inglés), puede imaginarse como una superficie que crea un límite entre puntos de datos multidimensionales que representan ejemplos y los valores de sus características. La meta de un SVM es crear un límite plano, un **hiperplano**, que divida el espacio para crear particiones con bastante homogenidad en cada lado, combinando aspectos de kNN y modelos de regresión lineal. La combinación es muy poderosa, lo que permite a los SVM modelar relaciones muy complejas[@lantz2013machine].
+
+Las SVMs pueden adaptarse para ser utilizadas con prácticamente cualquier tipo de tarea de aprendizaje, incluyendo clasificación y predicción numérica. Muchos de los éxitos clave del algoritmo se han conseguido en reconocimiento de patrones. Las aplicaciones más notables incluyen[@lantz2013machine]:
+
+* Clasificación de los datos de expresión génica de microarrays en el campo de la bioinformática para identificar el cáncer u otras enfermedades genéticas.
+
+* Categorización de texto, como la identificación del idioma utilizado en un documento o la clasificación de documentos por tema.
+
+* La detección de eventos raros pero importantes como fallas en el motor de combustión, brechas de seguridad o terremotos.
+
+```{r echo=FALSE}
+fortalezas <- c("Uso en predicción y clasificación","Uso bastante extendido",
+"Funciona de forma óptima con ruido", "Facilidad de uso, comparado con ANN")
+
+debilidades <- c("Requiere especificar parámetro C y función de kernel (ensayo y error)","Lento de entrenar, sobre todo a medida que aumenta el número de características","El funcionamiento interno es difícil de interpretar, Como en el caso de ANN")
+
+datos <- cbind(fortalezas, debilidades)
+kable(datos, col.names = c("Fortalezas",  "Debilidades"), 
+      align = c("l", "l", "l"), caption = "fortalezas y debilidades de algoritmo SVM")
+```
+
+# Predicción de cancer de cólon con SVM
+
+## 1. Obtención de los datos:
+```{r}
+data <- read.csv(params$data)
+```
+
+## 2. Exploración y preparación de datos:
+
+```{r}
+dim(data)
+table(is.na(data))
+```
+
+Nótese el rango de las variables y la información del diagnóstico (n indica tejido sano, y t indica tejido tumoral).
+```{r}
+range(data[1:62,1:2000])
+table(data$y)
+```
+
+El archivo tiene `r dim(data)[1]` observaciones y `r dim(data)[2]` variables. Se observa que no hay datos faltantes, por lo que no hay que ajustar `data`. Los datos son numéricos, posiblmente enteros, excepto en el caso de la última columna (Clase), que tiene dos factores. 
+
+A continuación se presenta la distribución de los diez primeros genes en un boxplot (fig. 1):
+
+```{r}
+par(mar=c(7,4,2,1))
+
+boxplot(data[,1:10], las=2, col="lightblue", main="Figura 1.- Boxplot de las primeras 10 variables")
+abline(h=5, col="red")
+```
+
+## 3. Preparación de los datos - Creando datasets de entrenamiento y de prueba.
+
+```{r}
+indices_t <- which(data$y == "t")
+indices_n <- which(data$y == "n")
+
+# No muestras t
+N_t <- round(params$ptrain*length(indices_t),0)
+
+# No muestras n
+N_n <- round(params$ptrain*length(indices_n),0)
+
+# aprox 66% de los datos
+set.seed(params$seed_train)
+rnd_t <- sample(indices_t, N_t)
+rnd_n <- sample(indices_n, N_n)
+
+# se toman 100 genes aleatorios
+rnd_g <- sample(1:(ncol(data)-1), 2000)
+
+# Datasets 
+data_t <- data[rnd_t, rnd_g]     
+data_n <- data[rnd_n, rnd_g]    
+
+# resúmenes de las 5 primeras columnas 
+summary(data_t[,1:5])
+summary(data_n[,1:5])
+```
+
+```{r}
+dim(data_t)
+dim(data_n)
+
+range(data_t)
+range(data_n)
+```
+
+Se pueden observar diferencias entre los rangos de expresión de los genes entre las muestras normales y tumorales. De acuerdo con lo que conocemos del cáncer, es posible que la distribución de datos de la expresión génica de tumores presente valores más extremos (mayor cantidad de puntos extremos), y algunos valores de expresión muy por debajo de lo normal. 
+
+### 3.1. Se crean los data sets de entrenamiento (train) y prueba (test):  
+```{r}
+n <- nrow(data)
+n_train <- params$ptrain
+set.seed(params$seed_train)
+
+train <- sample(n, floor(n*n_train))
+
+data_train <- data[train,]
+data_test <- data[-train,]
+
+
+# También se pueden normalizar los datos, 
+# para comparar posteriormente si los resultados se asemejan
+
+#normalize <- function(x) {
+#return ((x - min(x)) / (max(x) - min(x)))
+#}
+
+#data_norm <- as.data.frame(lapply(data[,-2001], normalize))
+
+#data_norm_train <- data_norm[train,]
+#data_norm_test <- data_norm[-train,] # quita las columnas seleccionadas en train
+```
+
+## 4. Entrenamiento del modelo en los datos:
+
+```{r}
+if(!(require(kernlab))) install.packages("kernlab")
+library(kernlab)
+set.seed(params$seed_smv)
+
+lmod <- ksvm(y ~ ., data=data_train, kernell="vanilladot")
+
+lmod
+```
+
+## 5. Predicción y Evaluación del desempeño del modelo lineal
+
+Luego de obtenidos los modelos, evaluamos su rendimiento con `data_test` utilizando la función `predict()` 
+
+## 5.1 Predicción (modelo lineal)
+
+```{r}
+pred_lmod <- predict(lmod, data_test)
+```
+
+## 5.2 Matriz de confusión (modelo lineal)
+
+```{r}
+library(caret)
+
+# Crosstable
+ct <- table(pred_lmod, data_test$y)
+(cm_1 <- confusionMatrix(ct, positive="t"))
+```
+
+El modelo SVM lineal con categoría positiva "tumor" tiene una precisión de `r cm_1$overall[1]`.Una sensitividad de `cm_1$byClass[1]` y especificidad de `cm_1$byClass[2]`.
+
+## 6. Predicción y Evaluación del desempeño del modelo gaussiano
+
+Ahora se va a realizar SVM con kernell gaussiano, cambiando `vanilladot` por `rbfdot` en las opciones de `kvsm()`
+```{r}
+library(kernlab)
+set.seed(params$seed_smv)
+
+gmod <- ksvm(y ~ ., data=data_train, kernell="rbfdot")
+
+gmod
+```
+
+## 6.1 Predicción (modelo gaussiano)
+
+```{r}
+pred_gmod <- predict(gmod, data_test)
+```
+
+## 6.2 Matriz de confusión (modelo gaussiano)
+
+```{r}
+library(caret)
+
+# Crosstable
+ct <- table(pred_gmod, data_test$y)
+(cm_2 <- confusionMatrix(ct, positive="t"))
+```
+
+El modelo SVM lineal con categoría positiva "tumor" tiene una precisión de `r cm_2$overall[1]`.Una sensitividad de `cm_2$byClass[1]` y especificidad de `cm_2$byClass[2]`.
+En este caso, ambos modelos tuvieron la misma precisión. Al ser los resultados semejantes, se recomienda tomar el modelo más sencillo. Es posible que utilizando menos de los 2000 genes (a través de un estudio que evalúe la expresión diferencial, que nos permita escoger un subconjunto de menos de 100 genes) podríamos llegar a un modelo mucho más preciso. 
+
+# Paquete `caret`: Modelos `svmLinear` y `svmRadial`:
+
+Se pretende confirmar si los resultados al utilizar el paquete caret serán semejantes a los de `kernlab`. Se evaluará el rendimiento con particiones de igual tamaño, y además se realizará cross validation y bootstrap
+
+Se crean las particiones de datos con `createDataPartition`
+```{r}
+set.seed(params$seed_train)
+
+ind_train <- createDataPartition(y=data$y, p=params$ptrain, list=F)
+
+train_set <- data[ind_train,]
+test_set <- data[-ind_train,]
+```
+
+## SVM `svmLinear`
+
+```{r}
+set.seed(params$seed_train)
+linear <- train(y ~ ., train_set, method="svmLinear", 
+                trControl=trainControl(method="none"), 
+                tuneGrid=NULL, trace=F)
+linear
+```
+
+```{r}
+prediction <- predict(linear, test_set) 
+ct <- table(prediction, test_set$y) 
+(cm_3 <- confusionMatrix(ct, positive="t"))
+```
+
+Ahora se repite el modelo, con `data_train` y `data_test`(los mismos datos utilizados con kvsm)
+```{r}
+set.seed(params$seed_train)
+linear <- train(y ~ ., data_train, method='svmLinear',
+                trControl= trainControl(method='none'),
+                tuneGrid= NULL, trace = FALSE)
+linear
+```
+
+```{r}
+prediction <- predict(linear, data_test) 
+ct <- table(prediction, data_test$y) 
+(cm_4 <- confusionMatrix(ct, positive="t"))
+```
+
+Los resultados no son los mismos de antes. 
+
+## SVM `svmlinear` 5-fold crossvalidation
+
+```{r}
+set.seed(params$seed_smv)
+model <- train(y ~ ., train_set, method='svmLinear',
+               trControl= trainControl(method='cv',number=5),
+               tuneGrid= NULL, trace = FALSE)
+model
+
+```
+
+```{r}
+prediction <- predict(model, test_set) 
+ct <- table(prediction, test_set$y) 
+(cm_4 <- confusionMatrix(ct, positive="t"))
+```
+
+## SVM `svmlinear` Bootstrap
+
+```{r}
+set.seed(params$seed_smv)
+model <- train(y ~ ., train_set, method="svmLinear", trace=F)
+
+model
+```
+
+```{r}
+prediction <- predict(model, test_set) 
+ct <- table(prediction, test_set$y) 
+confusionMatrix(ct, positive="t")
+```
+
+## SVM `svmRadial`
+
+```{r}
+set.seed(params$seed_smv)
+model <- train(y ~ ., train_set, method='svmRadial',
+               trControl= trainControl(method='none'),
+               tuneGrid= NULL, trace = FALSE) #
+model
+```
+
+```{r}
+prediction <- predict(model, test_set) 
+ct <- table(prediction, test_set$y) 
+confusionMatrix(ct, positive="t")
+```
+
+```{r}
+set.seed(params$seed_smv)
+model <- train(y ~ ., data_train, method='svmRadial',
+               trControl= trainControl(method='none'),
+               tuneGrid= NULL, trace = FALSE) #
+model
+```
+
+```{r}
+prediction <- predict(model, data_test) 
+ct <- table(prediction, data_test$y) 
+confusionMatrix(ct, positive="t")
+```
+
+# Referencias
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

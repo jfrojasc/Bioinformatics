@@ -29,15 +29,6 @@ if(!(require(printr))) {
 }
 ```
 
-```{r, echo=FALSE}
-htmltools::img(src = knitr::image_uri( "logo_uoc_petit.png"), 
-               alt = 'logo UOC', 
-               style = 'position:absolute; top:0; right:0; padding:10px;')
-htmltools::img(src = knitr::image_uri( "logo_ub_petit.png"), 
-               alt = 'logo UB', 
-               style = 'position:absolute; top:0; left:0; padding:10px;')
-```
-
 # **1. Estadística Descriptiva**
 ## 1. Para la base de datos `crabs` del paquete `MASS` de **R**:
 Resumen gráfico de la información en `crabs`

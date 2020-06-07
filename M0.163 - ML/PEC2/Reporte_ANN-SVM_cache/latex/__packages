@@ -1,0 +1,12 @@
+base
+knitr
+kableExtra
+ggplot2
+ggseqlogo
+neuralnet
+NeuralNetTools
+lattice
+caret
+Rcpp
+RSNNS
+kernlab

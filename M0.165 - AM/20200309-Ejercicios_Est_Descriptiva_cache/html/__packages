@@ -1,0 +1,9 @@
+base
+knitr
+MASS
+gridExtra
+ggExtra
+psych
+printr
+corrplot
+ggplot2

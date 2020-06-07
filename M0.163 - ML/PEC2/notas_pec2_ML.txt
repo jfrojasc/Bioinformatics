@@ -1,0 +1,19 @@
+20 x 142,560 = 2,851,200
+
+180 x 15840 = 2,851,200
+	1 in n out of 20
+L	11
+M	13	
+A	1
+F	14
+Y	19
+L	11
+Y	19	
+E	7
+V	20
+
+https://omarwagih.github.io/ggseqlogo/#accepted_input_formats
+
+https://bioinfo2.ugr.es/bioinfo/prediccion-de-genes/
+
+https://towardsdatascience.com/starting-off-in-bioinformatics-rna-transcription-and-translation-aaa7a91db031

@@ -3,8 +3,8 @@ title: "Ejercicios 1.1 - Estadística descriptiva multivariante"
 author: "Jose Felix Rojas Cabeza"
 date: "2/29/2020"
 output:
-  pdf_document: default
   html_document: default
+  pdf_document: default
 ---
 
 ```{r setup, include=FALSE}
@@ -24,15 +24,6 @@ if(!(require(printr))) {
             repos = c('http://yihui.name/xran', 'http://cran.rstudio.com')
   )
 }
-```
-
-```{r, echo=FALSE}
-htmltools::img(src = knitr::image_uri( "logo_uoc_petit.png"), 
-               alt = 'logo UOC', 
-               style = 'position:absolute; top:0; right:0; padding:10px;')
-htmltools::img(src = knitr::image_uri( "logo_ub_petit.png"), 
-               alt = 'logo UB', 
-               style = 'position:absolute; top:0; left:0; padding:10px;')
 ```
 
 # **2. Álgebra Matricial **

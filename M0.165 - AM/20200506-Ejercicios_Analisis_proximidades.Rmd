@@ -1,0 +1,555 @@
+---
+title: "Análisis de proximidades"
+author: "José Félix Rojas Cabeza"
+date: "6/5/2020"
+output:
+  pdf_document:
+    toc: yes
+  word_document:
+    toc: yes
+  html_document:
+    code_folding: show
+    theme: lumen
+    toc: yes
+    toc_float: yes
+---
+
+```{r setup, include=FALSE}
+require(knitr)
+# include this code chunk as-is to set options
+opts_chunk$set(comment = NA, prompt = TRUE, tidy = FALSE, 
+               fig.width = 7, fig.height = 7,echo = TRUE,
+               fig.align='center',
+               message = FALSE, warning = FALSE, cache=TRUE)
+Sys.setlocale("LC_TIME", "C")
+```
+
+# Ejercicio 1: Similitudes entre siete animales
+La matriz adjunta indica las similitudes entre siete animales según un experto:
+
+```{r echo=FALSE}
+library(knitr, quietly = TRUE)
+
+
+
+A_1 <- matrix(c(0,7,5,9,5,7,9,7,0,4,6,4,6,7,5,4,0,3,4,5,6,9,6,3,0,3,2,2,5,
+                4,4,3,0,5,4,7,6,5,2,5,0,4,9,7,6,2,4,4,0), nrow=7, byrow=T)
+
+colnames(A_1) <- c("A", "B", "C", "D", "E", "F", "G")
+rownames(A_1) <- c("A", "B", "C", "D", "E", "F", "G")
+
+kable (A_1, align = c("l"), caption = "Similitudes entre 7 animales" )
+#datos <- cbind(genes, round(sorted_log_pval, 6), round(sorted_fc,6)  )
+#kable(datos, col.names = c("Gen",  "Log(P-Valor)", "Dif. Medias"), 
+#     align = c("l", "l", "l"), caption = "Contraste de Valores Medios y P valores de los genes de interés")
+```
+
+a) construir la matriz $B=-\frac{1}{2}HD^{(2)}$ donde $D^{(2)}$ es la matriz de distancias al cuadrado y $H$ es la matriz de centrado, y calcular sus valores propios. Observar si la matríz de distancias es euclídea:
+
+```{r}
+n <- 7
+I <- diag(rep(1, n))
+H <- I - 1/n*(rep(1, n) %*% t(rep(1, n)))
+B <- -(1/2)*(H %*% A_1^2 %*% H )
+
+colnames(B) <- c("A", "B", "C", "D", "E", "F", "G")
+rownames(B) <- c("A", "B", "C", "D", "E", "F", "G")
+
+# Matriz B
+round(B,3)
+
+# Autovalores
+eigen(B)$values
+
+# Euclidea?
+if(!(require(ade4))) install.packages("ade4")
+library(ade4)
+is.euclid(as.dist(A_1))
+```
+
+La función `is.euclid()` indica que A_1 no es euclídea, también se puede deducir, observando que algunos autovalores son negativos.
+
+b) Obtener la representación con las dos primeras coordenadas principales e indicar el grado de
+bondad de esta representación.
+
+Se puede hacer a partir de la descomposición de la matriz B o con la función `cmdscale(dist, eig=T)`.
+
+```{r}
+# Multidimensional Scaling
+M <- cmdscale(as.dist(A_1), eig = TRUE)
+
+M
+```
+
+```{r}
+# Plot
+plot(M$points, type = "n", xlim = c(-5.5,5.5), ylim = c(-5.5,5.5) )
+text(M$points[,1], M$points[,2], labels = rownames(A_1), cex= .9, col = "blue")
+```
+
+
+# Ejercicio 4: Variables binarias
+Si las variables observadas sobre un conjunto de individuos son del tipo binario, es necesario disponer de una matriz de distancias basadas en los coeficientes de similaridad que se obtienen de las tablas del tipo
+
+```{r echo=FALSE}
+library(knitr, quietly = TRUE)
+
+
+
+A_4 <- matrix(c("A", "B", "C", "D"), nrow=2, byrow=T)
+
+colnames(A_4) <- c("1", "0")
+rownames(A_4) <- c("1", "0")
+
+kable(A_4) 
+```
+
+
+donde a es el número de variables con respuesta 1 en ambos individuos, d es el número de variables con respuesta 0 en ambos individuos, etc.
+
+Entre los muchos coeficientes de similaridad destacan dos:
+
+\[Sokal\space y\space Michener:\space S_{ij}=\frac{a+d}{p} \quad Jaccard: S_{ij}=\frac{a}{p-d}  \]
+
+donde $p=a+b+c+d$ es el número de variables binarias observadas.
+
+El coeficiente de Sokal y Michener se utiliza con variables binarias simétricas, es decir, aquellas en las que los valores 1 y 0 son intercambiables. Uno no es más importante que el otro, como el sexo. El coeficiente de Jaccard, en cambio, se utiliza con variables binarias asimétricas, es decir, aquellas en las que la presencia de la característica (el 1) es importante.
+
+Aplicando uno de estos coeficientes a un conjunto de individuos se obtiene una matriz de similaridades $(s_{ij})$ que se puede transformar en una distancia
+
+\[ d^2_{ij}= s_{ii}+s_{jj}-2s_{ij} =2(1-s_{ij})\]
+
+Dada la siguiente matriz de datos:
+```{r echo=FALSE}
+B_4 <- matrix(c(1,1,0,0,1,1,1,1,1,0,0,1,1,0,0,1,0,1,0,0,0,0,1,0), nrow=4, byrow=T)
+  
+rownames(B_4) <- c("A", "B", "C", "D")
+colnames(B_4) <- paste("X", 1:6, sep="")
+
+kable(B_4)
+```  
+
+
+con las observaciones de 6 variables binarias sobre 4 individuos,
+
+a) Calcular los coeficientes de Sokal y Michener para cada par de individuos y obtener la matriz de distancias asociada.
+```{r}
+sim_SM <- function(x,y) {
+  if (length(x) != length(y)) {
+    stop ("Los vectores deben tener la misma longitud")}
+  else {
+    a <- sum(x==1 & y==1)
+    d <- sum(x==0 & y==0)
+    (a+d)/length(x)
+  }
+}
+
+sim_bin <- function(X, sim) {
+  n <- nrow(X)
+  S <- matrix(0, nrow=n,ncol=n)
+  for (i in 1:(n-1)) 
+    for (j in (i+1):n) 
+      S[i,j] <- sim(X[i,], X[j,])
+      S <- S + diag(1,n) + t(S)
+      rownames(S) <- colnames(S) <- rownames(X)
+      as.dist(2*(1-S))
+}
+
+sim_bin(B_4, sim_SM)
+```
+
+b) Lo mismo que en el apartado anterior pero con el coeficiente de Jaccard:
+```{r}
+sim_J <- function(x,y) {
+  if (length(x) != length(y)) {
+    stop ("Los vectores deben tener la misma longitud")}
+  else {
+    a <- sum(x==1 & y==1)
+    d <- sum(x==0 & y==0)
+    a/(length(x)-d)
+  }
+}
+
+sim_bin(B_4, sim_J)
+```
+
+
+# Ejercicio 5: `Cluster::flower`
+En muchos análisis multivariantes se dispone de un conjunto de variables mixto, es decir, unas variables son del tipo cuantitativo y otras cualitativo (nominales, ordinales o incluso binarias). En estos casos es necesario disponer de una distancia como la de Gower que tiene en cuenta el tipo de variable.
+
+El cuadrado de la distancia de Gower entre dos filas de datos se define como $d^2_{ij} = 1 − s_{ij}$, donde $s_{ij}$ es el coeficiente de similaridad
+
+\[ s_{ij}=\frac{\sum^{p_1}_{h=1}(1-|x_{ih}-x_{jh}|/G_h)+a+\alpha}{p_1+(p_2-d)+p_3}  \]
+
+$p_1$ es el número de variables cuantitativas, $p_2$ es el número de variables binarias, $p_3$ el número de variables cualitativas (no binarias), a el número de coincidencias (1, 1) en las variables binarias, d el número de coincidencias (0, 0) en las variables binarias, $\alpha$ el número de coincidencias en las variables cualitativas (no binarias) y $G_h$ es el rango (o recorrido) de la $h$-ésima variable cuantitativa
+
+a) Calcular la distancia de Gower entre los datos de 18 tipos de flores de la base de datos flower del paquete cluster de R. 
+Probar la función `daisy()` del paquete cluster.
+
+```{r}
+if(!(require(cluster))) install.packages("cluster")
+library(cluster)
+A_5 <- cluster::flower
+colnames(A_5) <- c("winters","shadow","tubers","color","soil","pref","height","distance")
+str(A_5)
+
+# Gower Distance
+G_dist <- daisy(A_5, metric = "gower", type=list(symm=c(1,2), asymm=3))
+
+attr(G_dist,"Types")
+```
+
+b) Realizar un escalado multidimensional con esta distancia y representar las flores en un gráfico de dispersión de dos dimensiones.
+
+```{r}
+# Multidimensional scaling
+M_5 <- cmdscale(G_dist, eig = T)
+M_5
+```
+
+```{r}
+plot(M_5$points, type = "n", xlab="PC 1", ylab="PC 2")
+abline(h=0,v=0,lty=5,col="red", lwd=1)
+text(M_5$points[,1], M_5$points[,2], labels = 1:18, cex=0.9)
+```
+```{r}
+# bondad de ajuste
+evv <- cmdscale(G_dist, k=17, eig = T)$eig
+sum(evv[1:2]/sum(evv[evv>0]))
+```
+
+# Ejercicio 6: `Chap5skulls.dat`
+
+Consideremos los datos sobre cráneos de varones egipcios de cinco épocas históricas que se pueden bajar  desde la [página del libro de Everitt](https://www.york.ac.uk/depts/maths/data/everitt/welcome.htm) (2005). Los podremos cargar directamente en R con la siguientes instrucciones:
+
+```
+skulls <- source("/(path)/chap5skulls.dat")$value
+str(skulls)
+attach(skulls)
+```
+Donde el path debe ser la dirección a la carpeta donde hemos dejado el archivo una vez descomprimido. Así tendremos la base de datos skulls con cinco variables. La primera variable es el factor EPOCH y las otras cuatro son las medidas biométricas estudiadas del cráneo.
+
+```{r echo=FALSE}
+skulls <- source("chap5skulls.dat")$value
+
+str(skulls)
+```
+
+a) En primer lugar podemos realizar un MANOVA para contrastar la diferencia de medias entre
+los niveles del factor o poblaciones. No entraremos aquí en la comprobación de las hipótesis
+de normalidad y de igualdad de las matrices de covarianzas.
+
+
+```{r}
+manova <- manova(cbind(MB, BH, BL, NH) ~ EPOCH, data=skulls)
+summary(manova, test="Wilks")
+```
+
+El p valor indica que hay diferencias entre las medias de las poblaciones. 
+
+
+b) (∗∗) Comprobaremos que el test anterior rechaza la igualdad de medias y, por lo tanto, justificaun análisis canónico de poblaciones. 
+
+Utilizar la función candisc() del paquete candisc o consultar
+
+http://erre-que-erre-paco.blogspot.com/2010/03/analisis-canonico-de-poblaciones.html
+
+Al comprobarse la diferencia de medias, tiene sentido hacer un análisis canónico de poblaciones:
+
+```{r}
+# Matriz centrada de medias
+attach(skulls)
+nT <- nrow(skulls)
+p <- ncol(skulls)-1
+g <- nlevels(EPOCH)
+(n_i <- tapply(EPOCH, EPOCH, length))
+
+# vector de medias global
+(g_mean <- apply(skulls[,2:5], 2, mean))
+
+# Medias grupales
+means <- aggregate(skulls[,2:5], by=list(EPOCH), mean)
+means <- as.matrix(means[,2:5])
+rownames(means) <- levels(EPOCH)
+round(means,3)
+
+# Matriz centrada de medias
+X <- means - matrix(g_mean, nrow = g, ncol = p, byrow = TRUE)
+round(X,3)
+
+# Matriz de covarianzas de grupo (denominador n-1)
+(S_list <- by(skulls[,2:5], skulls$EPOCH, FUN=cov))
+```
+
+```{r}
+# Matriz de covarianzas de grupo (W)
+S <- matrix(0,nrow=4,ncol=4)
+for(i in 1:g){ S <- S + n_i[i]*S_list[[i]] }
+S <- S/nT 
+round(S,3)
+```
+
+```{r}
+# Cholesky
+A <- crossprod(X)
+T_ <- chol(S)
+T_inv <- solve(T_)
+(ev <- eigen( t(T_inv) %*% A %*% T_inv ) )
+```
+
+```{r}
+evv <- ev$values
+(pct <- round(evv/sum(evv)*100, 2))
+```
+
+Vectores propios $T'^{-1}AT^{-1}TV$:
+```{r}
+TV <- ev$vectors
+```
+
+Vectores propios $VT^{-1}(TV)$: 
+```{r}
+V2 <- T_inv %*% TV
+round(V2, 3)
+```
+
+Ortogonales:
+```{R}
+t(V2) %*% A %*% V2
+```
+
+Ortonormales:
+```{r}
+t(V2) %*% S %*% V2
+```
+
+```{r}
+#coordenadas canónicas para medias centradas
+round(X %*% V2, 3)
+
+#coordenadas canónicas para medias no centradas
+Y <- means %*% V2
+round(Y, 3)
+``` 
+
+Representación Canónica
+```{r}
+library(MASS)
+eqscplot(Y[,1:2],xlim=c(1,3.5),ylim=c(22.2,23),pch="+",lwd=4,xlab="CV1",ylab="CV2")
+title(main="Epoch means in canonical coordinates",line=1)
+text(Y[,1],Y[,2]+0.06,labels=rownames(means),cex=0.9)
+```
+```{r}
+# Radio de confianza 95%
+
+alpha <- 0.05
+R2 <- (nT-g)*p/(nT-g-p+1)*qf(1-alpha,p,nT-g-p+1)
+R <- sqrt(R2/n_i)
+round(R,2)
+```
+
+Representación Canónica con círculos de confianza:
+
+```{r}
+eqscplot(Y[,1:2],pch="+",lwd=4,xlim=c(0.7,3.7),xlab="CV1",ylab="CV2")
+title(main="Epoch means in canonical coordinates",line=1)
+text(Y[,1],Y[,2]+0.07,labels=rownames(means),cex=0.9)
+symbols(Y[,1],Y[,2],circles=R,inches=FALSE,add=TRUE)
+```
+Nótese que en esta figura, ambos ejes están en la misma escala.
+
+```{r}
+# Análisis canónico discriminante
+library(candisc)
+(skulls_can <- candisc(manova))
+```
+
+El primer eje canónico presenta un p valor significativo. 
+
+El gráfico es idéntico al obtenido anteriormente, pero el primer eje está cambiado de signo.
+```{r fig.width=14}
+par(mfrow=c(1,2))
+plot(skulls_can, type="n", var.lwd=0, xlim=c(-1.5,1.5), ylim=c(-1.5,1.5))
+plot(skulls_can, ellipse = T, var.lwd = 2)
+``` 
+
+Del análisis canónico de poblaciones sobre las medias de las cinco poblaciones, usando la matriz de covarianzas común, resulta una representación significativa sobre un solo eje canónico que representa la evolución en las medidas craneales de las muestras. 
+
+Esta escala es colineal con el paso del tiempo, puesto que las medias se ordenan cronológicamente. Los círculos de confianza al 95 % muestran como, si bien estas poblaciones se solapan entre ellas, las más alejadas en el tiempo se hallan bien separadas mostrando diferencias significativas. El primer eje se explica principalmente por la variable MB, y NH en menor medida, en un sentido y BL en el otro. El segundo eje está muy relacionado con la variable BH.
+
+c) Calcular las distancias de Malahanobis entre cada pareja de épocas. 
+
+Para ello, considerar la matriz de covarianzas común
+
+\[\hat S= \frac{29\hat S_1+29\hat S_2+29\hat S_3+29\hat S_4+29\hat S_5}{145}\]
+
+donde $\hat S_1, \dots, \hat S_5$ son las matrices de covarianzas en cada época.
+
+```{r}
+D_M <- function(X,S){
+  S.inv <- solve(S)
+  n <- nrow(X)
+  D <- matrix(0,nrow=n,ncol=n)
+  for(i in 1:(n-1)) for(j in (i+1):n) D[i,j] <- t(X[i,]-X[j,]) %*% S.inv %*% (X[i,]-X[j,])
+  D <- D + diag(0,n) + t(D)
+  rownames(D) <- colnames(D) <- rownames(X)
+  D
+}
+
+Malah <- D_M(means, S)
+round(Malah, 3)
+```
+
+d) Realizar un escalado multidimensional con la matriz de distancias obtenida en el apartado
+anterior y representar las cinco épocas con las dos coordenadas principales.
+
+```{r}
+# Escalado MD de Dist. de Malahanobis
+
+mds <- cmdscale(as.dist(sqrt(Malah)), eig=T)
+mds
+```
+
+```{r}
+plot(mds$points[,1], -mds$points[,2], pch="+", xlab="CP1", ylab="CP2", 
+     xlim=c(-1,1), ylim=c(-1,1), main = "Coordenadas principales de Malahanobis (2D)")
+text(mds$points[,1], -mds$points[,2]+0.05, labels=rownames(means), cex=0.9)
+```
+ 
+
+```{r}
+Z <- (X %*% V2)[,1:2]
+plot(Z, pch="+",xlim=c(-1,1),ylim=c(-0.6,0.6),xlab="CP1",ylab="CP2")
+text(Z[,1],Z[,2]+0.03,labels=rownames(means),cex=0.9)
+```
+
+Se ha mostrado cómo la distancia de Mahalanobis entre cada par de poblaciones (i, j)
+coincide con la distancia euclídea (la que se observa sobre el gráfico) entre las filas (i, j) de la matriz de coordenadas canónicas. Esto se justifica por el uso de la métrica de la matriz de covarianzas común, en ambos casos.
+
+# Ejercicio 8: MDS en Ecología
+Escalado multidimensional no métrico en Ecología
+
+El escalado multidimensional no métrico puede realizarse usando la función `isoMDS()` del paquete `MASS`. Esta función necesita como entrada las disimilaridades entre observaciones (sites). La función `vegdist()` del paquete `vegan` contiene algunas disimilaridades apropiadas en ecología de comunidades (donde pueden haber muchos ceros). El valor por defecto es la disimilaridad de Bray-Curtis, también conocida como como disimilaridad de Steinhaus, o en Finlandia como índice de Sørensen.
+
+```{r}
+# generación de datos
+coenocline <- function(x,A0,m,r,a,g, int=T, noise=T) {
+#x is the environmental range
+#A0 is the maximum abundance of the species at the optimum environmental conditions
+#m is the value of the environmental gradient that represents the optimum conditions
+#for the species
+#r the species range over the environmental gradient (niche width)
+#a and g are shape parameters representing the skewness and kurtosis
+# when a=g, the distribution is symmetrical
+# when a>g - negative skew (large left tail)
+# when a<g - positive skew (large right tail)
+#int - indicates whether the responses should be rounded to integers (=T)
+#noise - indicates whether or not random noise should be added (reflecting random sampling)  
+#NOTE.  negative numbers converted to 0
+        b <- a/(a+g)
+        d <- (b^a)*(1-b)^g
+        cc <- (A0/d)*((((x-m)/r)+b)^a)*((1-(((x-m)/r)+b))^g)
+        if (noise) {n <- A0/10; n[n<0]<-0; cc<-cc+rnorm(length(cc),0,n)}
+        cc[cc<0] <- 0
+        cc[is.na(cc)]<-0
+        if (int) cc<-round(cc,0)
+        cc
+}
+#plot(coenocline(0:100,40,40,20,1,1, int=T, noise=T), ylim=c(0,100))
+
+
+set.seed(1)
+x <- seq(0,50,l=10)
+n <- 10
+sp1<-coenocline(x=x,A0=5,m=0,r=2,a=1,g=1,int=T, noise=T)
+sp2<-coenocline(x=x,A0=70,m=7,r=30,a=1,g=1,int=T, noise=T)
+sp3<-coenocline(x=x,A0=50,m=15,r=30,a=1,g=1,int=T, noise=T)
+sp4<-coenocline(x=x,A0=7,m=25,r=20,a=0.4,g=0.1,int=T, noise=T)
+sp5<-coenocline(x=x,A0=40,m=30,r=30,a=0.6,g=0.5,int=T, noise=T)
+sp6<-coenocline(x=x,A0=15,m=35,r=15,a=0.2,g=0.3,int=T, noise=T)
+sp7<-coenocline(x=x,A0=20,m=45,r=25,a=0.5,g=0.9,int=T, noise=T)
+sp8<-coenocline(x=x,A0=5,m=45,r=5,a=1,g=1,int=T, noise=T)
+sp9<-coenocline(x=x,A0=20,m=45,r=15,a=1,g=1,int=T, noise=T)
+sp10<-coenocline(x=x,A0=30,m=50,r=5,a=1,g=1,int=T, noise=T)
+X <- cbind(sp1, sp10,sp9,sp2,sp3,sp8,sp4,sp5,sp7,sp6)
+#X<-X[c(1,10,9,2,3,8,4,5,7,6),] 
+colnames(X) <- paste("Sp",1:10,sep="")
+rownames(X) <- paste("Site", c(1,10,9,2,3,8,4,5,7,6), sep="")
+X <- X[c(1,4,5,7,8,10,9,6,3,2),]
+data <- data.frame(Sites=factor(rownames(X),levels=rownames(X)), X)
+
+```
+
+a) Calcular el NMDS isométrico en 2 dimensiones con la disimilaridad de Bray-Curtis para estos
+datos y representar el mapa con las posiciones de las observaciones (mejor con los nombres de
+las sites). ¿Cual es el stress (en porcentaje) de la representación?
+
+b) El paquete vegan dispone de la función `metaMDS()` más flexible. Aunque el algoritmo es distinto al de la función `isoMDS()`, podemos utilizar el mismo engine, la disimilaritad de Bray, la configuración inicial `cmdscale()` y `autotransform=FALSE` para obtener un resultado parecido al del apartado anterior. Dibujar el mapa y calcular el stress. ¿Mejor que el anterior?
+Nota: En el mapa, si conviene, tal vez debamos cambiar el signo de algún eje.
+
+c) Para comparar dos configuraciones o mapas, en el paquete vegan disponemos de la maravillosa
+función `procrustes()`. Comparar los dos mapas que tenemos con esta función y su `plot()`
+por defecto. Nota: El origen de las flechas son los puntos del segundo mapa. La punta de las flechas son los puntos del primer mapa. ¡Atención! Los ejes pueden rotar, cambiar de signo y encoger.
+
+d) Finalmente vamos a calcular un NMDS con la función `metaMDS()` y el `engine = "monoMDS"`,
+dejando los otros parámetros por defecto. Representar el mapa y calcular el stress (multiplicado por 100 para que sea un porcentaje).
+
+Observar que la solución es muy similar a la que se obtiene en la web con la función `ordiplot()`.
+Interpretar el mapa según la altura de las observaciones en la montaña
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

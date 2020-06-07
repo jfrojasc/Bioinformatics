@@ -1,0 +1,1020 @@
+---
+title: "ADO - PEC2 - Segunda prueba de evaluación contínua - Código"
+author: "José Félix Rojas Cabeza"
+date: "`r format(Sys.time(), '%Y - %B - %d')`"
+output:
+  html_document:
+    code_folding: show
+    theme: cerulean
+    toc: yes
+    toc_float: yes
+  word_document:
+    toc: yes
+  pdf_document:
+    toc: yes
+bibliography: referencias.bib
+---
+```{r setup, include=FALSE}
+require(knitr)
+# include this code chunk as-is to set options
+opts_chunk$set(comment = NA, prompt = TRUE, tidy = FALSE, 
+               fig.width = 7, fig.height = 7,echo = TRUE,
+               fig.align='center',
+               message = FALSE, warning = FALSE, cache=TRUE)
+Sys.setlocale("LC_TIME", "C")
+```
+
+```{r echo=FALSE}
+# verifica si un paquete está instalado, si no lo está, lo instala
+# if(!(require(paquete))) install.packages("paquete")
+# if(!(require())) install.packages("")
+# para instalar de bioconductor
+# if(!(require())) BiocManager::install("") 
+
+#if (!requireNamespace("BiocManager", quietly = TRUE))
+#    install.packages("BiocManager")
+#BiocManager::install()
+```
+
+```{R}
+#dir.create("data")
+#dir.create("results")
+```
+
+```{r echo=FALSE}
+# Instalación de paquetes
+# When running this package, there will be a prompt to update all packages 
+# check the console for further details
+
+# if(!(require(SummarizedExperiment))) BiocManager::install("SummarizedExperiment")
+```
+
+# Creación de Archivos
+```{R}
+targets <- read.csv("./data/targets.csv", header = TRUE, sep = ",")
+counts <- read.csv2("./data/counts.csv", header = TRUE, sep = ";")
+```
+
+```{R}
+#colocar minúsculas en todos los nombres de variable
+colnames(targets)[1] = "experiment"
+colnames(targets)[2] = "SRA_sample"
+colnames(targets)[3] = "sample_name"
+colnames(targets)[4] = "analysis_group"
+colnames(targets)[8] = "group"
+colnames(targets)[9] = "short_name"
+```
+
+```{R}
+colnames(targets)
+```
+
+```{r}
+ensembl_rownames <- gsub("\\..*", "", counts$X, fixed = FALSE)
+counts$X <- ensembl_rownames
+```
+
+# Selección de los datos a utilizar
+
+Escribir un pequeño script que extraiga 10 muestras del grupo 1 (NIT), 10 del grupo 2(SFI), y 10 del grupo 3 (ELI)
+
+```{R}
+# Groups:
+# 1 - NIT (Not infiltrated tissue)
+# 2 - SFI (Small focal infiltrates)
+# 3 - ELI (Extensive lymphoid infiltrates)
+
+# Reproducibilidad
+set.seed(27021981) 
+
+# toma de muestras
+NIT_sample <- targets[sample(which(targets$analysis_group==1),10),]
+SFI_sample <- targets[sample(which(targets$analysis_group==2),10),]
+ELI_sample <- targets[sample(which(targets$analysis_group==3),10),]
+
+NIT_idx <- rownames(NIT_sample)
+SFI_idx <- rownames(SFI_sample)
+ELI_idx <- rownames(ELI_sample)
+```
+
+```{R}
+head(NIT_sample,3)
+head(SFI_sample,3)
+head(ELI_sample,3)
+```
+
+```{R}
+# Compatibilización de los nombres de counts
+col_counts <- colnames(counts)
+col_counts <- gsub(".", "-", col_counts, fixed=T)
+
+# https://stackoverflow.com/questions/31518150/gsub-in-r-is-not-replacing-dot
+```
+
+```{R}
+col_id_1 <- vector()
+col_id_2 <- vector()
+col_id_3 <- vector()
+
+for(i in 1:10){
+  col_id_1[i] <- which(col_counts==as.character(NIT_sample$sample_name[i]))
+  col_id_2[i] <- which(col_counts==as.character(SFI_sample$sample_name[i]))
+  col_id_3[i] <- which(col_counts==as.character(ELI_sample$sample_name[i]))
+}
+
+col_id_1 #NIT
+col_id_2 #SFI
+col_id_3 #ELI
+```
+
+```{R}
+as.character(NIT_sample$sample_name[1])
+col_counts[col_id_1[1]]
+```
+
+```{r}
+n <- dim(counts)[1]
+
+NIT_counts <- counts[1:n, col_id_1]
+SFI_counts <- counts[1:n, col_id_2]
+ELI_counts <- counts[1:n, col_id_3]
+
+rownames(NIT_counts) <- counts$X
+rownames(SFI_counts) <- counts$X
+rownames(ELI_counts) <- counts$X
+```
+
+```{R}
+dim(counts)
+dim(NIT_counts)
+dim(SFI_counts)
+dim(ELI_counts)
+```
+
+```{R}
+# Equivalente a:
+#library(SummarizedExperiment)
+#countdata <- assay(all_counts)
+
+all_counts <- cbind(NIT_counts, SFI_counts, ELI_counts)
+write.csv(all_counts, file="./results/all_counts.csv")
+write.table(all_counts,"./results/all_counts",col.names=T, quote=F,sep=" ",)
+#head(all_counts,3)
+```
+
+```{R}
+dim(all_counts)
+head(rownames(all_counts),3)
+head(colnames(all_counts),3)
+
+count_rownames <- rownames(all_counts)
+count_colnames <- colnames(all_counts)
+```
+
+Debido a que la literatura recomienda [@love2015rna] confirmar que los nombres de las columnas de counts seleccionados correspondan con las filas de targets seleccionadas, se hizo la verificación:
+
+```{R}
+less_targets <- rbind(NIT_sample, SFI_sample, ELI_sample)
+
+dim(less_targets)
+```
+
+# Comparación 
+
+```{R}
+# corrección de nombres para comparación
+subbed_colnames <- cbind(gsub(".", "-", colnames(NIT_counts), fixed=T),
+                         gsub(".", "-", colnames(SFI_counts), fixed=T),
+                         gsub(".", "-", colnames(ELI_counts), fixed=T))
+
+# comparación 
+table(as.character(less_targets$sample_name)==subbed_colnames)                      
+```
+
+# Creación de un objeto DGEList
+
+Se seguirá un workflow propuesto para análisis diferencial de expresión de RNAseq [@rueda2015differential]:
+```{R}
+# Creating a DGEList object
+library(edgeR)
+dg_list_unfiltered <- DGEList(counts=all_counts, genes=rownames(all_counts), samples=less_targets, group = less_targets$analysis_group)
+
+# dim(dg_list)
+# head(dg_list$counts[,1:2])
+# head(dg_list$genes)
+```
+
+# Filtrado de los datos
+
+```{R}
+# Filtering
+counts_per_million <- cpm(dg_list_unfiltered)
+summary(counts_per_million[,1:3])
+```
+
+```{R}
+count_check <- counts_per_million > 1
+
+keep <- which(rowSums(count_check) >= 2)
+
+dg_list <- dg_list_unfiltered[keep, ]
+
+# cambia los nombres al formato con guiones
+rownames(dg_list$samples) <- gsub(".", "-", rownames(dg_list$samples), fixed=T)
+```
+
+Nótese la diferencia entre los sumarios y la cantidad de filas que quedan en `dg_list`.
+```{r}
+summary(cpm(dg_list[,1:3]))
+```
+
+```{R}
+dim(dg_list_unfiltered)
+dim(dg_list)
+```
+
+Se representó de esta forma porque una comparación gráfica del estado no filtrado con el filtrado no habría sido de mucha utilidad. A continuación, se coloca la distribución de la matriz de cuentas. 
+
+```{R}
+par(mar=c(13,4,1,1))
+
+boxplot(dg_list$counts, las=2, col="lightblue", main="Figura 1. Boxplot de las variables filtradas (n = 19,457)")
+abline(h=mean(dg_list$counts), col="red")
+```
+
+Se utiliza el método TMM porque es el recomendado en la literatura [@rueda2015differential].
+
+# Normalización
+```{R}
+# Normalization
+dg_list <- calcNormFactors(dg_list,method="TMM")
+```
+
+# Exploración de datos
+```{R fig.width=15, fig.height=15}
+# Data Exploration
+plotMDS(dg_list, pch=c(1:6,15,17,18,19), col=c(rep("red",10), rep("blue",10), rep("green",10)), cex=2, main="Figura 2. Gráfico de escalamiento multidimensional de distancias de pseudocounts", xlim=c(-5,5), ylim=c(-2,2))
+legend(-5.36, 2.15, legend=count_colnames, pch = c(1:6,15,17,18,19), col=c(rep("red",10), rep("blue",10), rep("green",10)) )
+#3, 1.67
+```
+Parece que `r count_colnames[1]` y `r count_colnames[1]`; `r count_colnames[12]` y `r count_colnames[13]`; `r count_colnames[15]` y `r count_colnames[20]` son los puntos más cercanos con esta proyección. Tendría sentido examinar si esta relación tiene sentido biológico o es un artefacto.   
+
+# Ajuste del modelo
+
+Especificación de la matriz de diseño
+
+```{R}
+#sample_type
+#sample_replicate
+
+s_type <- as.character(less_targets$group)
+s_rep <- paste("S", rep(1:3, each=10), sep = "")
+
+length(s_type)==length(s_rep)
+```
+
+```{R}
+(design_mat <- model.matrix(~ s_type))
+(design_mat_2 <- model.matrix(~0+s_type)) 
+```
+
+```{r}
+
+```
+
+# Estimación de la dispersión:
+
+`edgeR` utiliza un método empírico bayesiano para disminuir la estimación de la dispersión intergénica hacia la dispersión común (*tagwise*).
+
+Es importante resaltar que debe estimarse la dispersión común y su tendencia antes de que podamos estimar la dispersión *tagwise*.
+
+```{R}
+# here we lose the former dg_list
+# is a Negative binomial distribution is adequate for differential analysis?
+# check doi: 10.1186/s12859-020-3506-x later
+
+dg_list_1 <- estimateGLMCommonDisp(dg_list, design = design_mat)
+dg_list_1 <- estimateGLMTrendedDisp(dg_list_1, design = design_mat)
+dg_list_1 <- estimateGLMTagwiseDisp(dg_list_1, design = design_mat)
+
+dg_list_2 <- estimateGLMCommonDisp(dg_list, design = design_mat_2)
+dg_list_2 <- estimateGLMTrendedDisp(dg_list_2, design = design_mat_2)
+dg_list_2 <- estimateGLMTagwiseDisp(dg_list_2, design = design_mat_2)
+
+dim(dg_list_1)
+dim(dg_list_2)
+
+#***
+```
+
+Se pueden graficar los estimados para verificar cómo difieren. El coeficiente de variación biológica es la raíz cuadrada del parámetro de dispersión en el modelo de la binomial negativa.
+
+```{R}
+plotBCV(dg_list_1,main="Figura 3. Coeficiente biológico de variación (n = 19,457)")
+plotBCV(dg_list_2,main="Figura 3. Coeficiente biológico de variación (n = 19,457)")
+```
+
+# Expresión diferencial
+
+```{R}
+fit_1 <- glmFit(dg_list_1, design_mat)
+lrt_1 <- glmLRT(fit_1, coef = 3)
+# no se utiliza glmQLFit() para no reescalar.
+# https://support.bioconductor.org/p/76790/ 
+
+fit_2 <- glmFit(dg_list_2, design_mat_2)
+lrt_2 <- glmLRT(fit_2, coef = 3)
+```
+
+```{R}
+edgeR_result_1 <- topTags(lrt_1)
+edgeR_result_2 <- topTags(lrt_2)
+```
+
+```{R}
+# save() didn't work, no clue why
+topTags_1 <- topTags(lrt_1, n=19457)
+rownames(topTags_1$table) = 1:19457
+#save(topTags(lrt_1, n=19457)$table, file="./results/edgeR_result.RData")
+write.csv(topTags_1$table, file = "./results/edgeR_result.csv")
+
+```
+
+```{r}
+head(topTags(lrt_1, n=19457)$table)
+head(topTags(lrt_2, n=19457)$table)
+``` 
+
+```{R}
+# Similar to a volcano plot. 
+de_genes <- decideTests(lrt_1, p=0.001)
+de_genes <- rownames(lrt_1)[as.logical(de_genes)]
+plotSmear(lrt_1, de.tags=de_genes, main="Figura 4. Smear Plot")
+abline(h=c(-1,1), col=2)
+
+de_genes <- decideTests(lrt_2, p=0.001)
+de_genes <- rownames(lrt_2)[as.logical(de_genes)]
+plotSmear(lrt_2, de.tags=de_genes, main="Figura 4. Smear Plot")
+abline(h=c(-1,1), col=2)
+```
+
+```{R}
+# contrastes
+(design_mat_2 <- model.matrix(~0+s_type)) 
+fit_2 <- glmFit(dg_list_2, design_mat_2)
+
+NITvsSFI <- glmLRT(fit_2, contrast = c(0, 1, -1))
+SFIvsELI <- glmLRT(fit_2, contrast = c(-1, 0, 1))
+NITvsELI <- glmLRT(fit_2, contrast = c(-1, 1, 0))
+```
+
+# Listas de Genes diferencialmente expresados
+
+```{R}
+NITvsSFI_df <- as.data.frame(topTags(NITvsSFI))
+SFIvsELI_df <- as.data.frame(topTags(SFIvsELI))
+NITvsELI_df <- as.data.frame(topTags(NITvsELI))
+
+dim(NITvsSFI_df)
+```
+
+```{r}
+#genes <- cbind(NITvsSFI$genes$genes, SFIvsELI_df$genes, NITvsELI_df$genes)
+#colnames(genes) = c("NITvsSFI", "SFIvsELI", "NITvsELI")
+#rownames(genes) = c(1:10)
+
+#kable(genes, col.names =c("NITvsSFI", "SFIvsELI", "NITvsELI"), 
+#      align=c("l","l","l"), caption = "Tabla de Genes diferencialmente expresados")
+
+```
+
+
+# Colocar las anotaciones a los resultados de `edgeR`
+```{R}
+dim(NITvsSFI)
+dim(SFIvsELI)
+dim(NITvsELI)
+```
+
+```{R}
+de_g1 <- decideTests(NITvsSFI, p=0.001)
+de_g1 <- rownames(NITvsSFI)[as.logical(de_g1)]
+plotSmear(NITvsSFI, de.tags=de_g1, main="Figura 5. Smear Plot de NITvsSFI")
+#abline(h=c(-1,1), col=2)
+```
+Al parecer hay muy pocas diferencias de expresión entre las condiciones de no infiltración (NIT) e infiltrados pequeños focales (SFI)
+
+```{R}
+#de_genes <- decideTests(lrt, p=0.001)
+#de_genes <- rownames(lrt)[as.logical(de_genes)]
+#plotSmear(lrt, de.tags=de_genes, main="Figura 4. Smear Plot")
+#abline(h=c(-1,1), col=2)
+```
+
+```{R}
+de_g2 <- decideTests(SFIvsELI, p=0.001)
+de_g2 <- rownames(SFIvsELI)[as.logical(de_g2)]
+plotSmear(SFIvsELI, de.tags=de_g2, main="Figura 6. Smear Plot de SFIvsELI")
+abline(h=c(-1,1), col=2)
+```
+Parece ser que SFI se expresa a niveles más bajos que ELI
+
+```{R}
+de_g3 <- decideTests(NITvsELI, p=0.001)
+de_g3 <- rownames(NITvsELI)[as.logical(de_g3)]
+plotSmear(NITvsELI, de.tags=de_g2, main="Figura 7. Smear Plot de NITvsELI")
+abline(h=c(-1,1), col=2)
+```
+Parece ser que NIT se expresa a niveles más bajos que ELI
+
+# Anotación [enlace](https://bioinformatics-core-shared-training.github.io/RNAseq-R/rna-seq-annotation-visualisation.nb.html)
+```{R}
+library(org.Hs.eg.db)
+columns(org.Hs.eg.db)
+```
+
+```{R}
+library(AnnotationDbi)
+keytypes(org.Hs.eg.db)
+```
+
+```{R}
+#head(keys(org.Hs.eg.db, keytype = "ENSEMBL"))
+#head(dg_list$genes$genes)
+
+my_keys <- dg_list$genes$genes
+
+# Verifies whether my keys are in the database
+table(my_keys %in% keys(org.Hs.eg.db, keytype = "ENSEMBL"))
+```
+Hay 2989 genes que no están en la base de datos. Sin embargo, continuaremos con el procedimiento de anotación.
+
+```{R}
+library(org.Hs.eg.db)
+annotation_na <- select(org.Hs.eg.db, keys = my_keys, columns = c("ENSEMBL","SYMBOL","GENENAME"), keytype = "ENSEMBL")
+tail(annotation_na)
+
+dim(annotation_na)
+```
+
+Se comprobó que había 124 códigos de ENSEMBL repetidos, que fueron eliminados de la siguiente forma:
+```{r}
+# Se sacó del código para no cargar dplyr
+#library(dplyr)
+
+# datos repetidos
+#a <- distinct(annotation_na, ENSEMBL)
+
+#annotation_na%>%distinct(ENSEMBL, .keep_all=T)
+#detach("package:dplyr", unload=TRUE)
+
+# unique no sirvió
+#library(base)
+#annotation_na <- unique(annotation_na)
+
+repetidos <- which(duplicated(annotation_na$ENSEMBL)==T)
+
+annotation_na <- annotation_na[-repetidos, ]
+
+dim(annotation_na)
+```
+
+Nótese que el dataset de anotaciones tiene 2989 `NA`. 
+```{R}
+# table(NITvsSFI$genes$genes == annotation_na$ENSEMBL) didn't work, 
+# can't explain why
+
+table(NITvsSFI$genes$genes %in% keys(org.Hs.eg.db, keytype = "ENSEMBL"))
+table(annotation_na$ENSEMBL %in% keys(org.Hs.eg.db, keytype = "ENSEMBL"))
+table(annotation_na$ENSEMBL %in% NITvsSFI$genes$genes)
+
+length(annotation_na$ENSEMBL) 
+length(NITvsSFI$genes$genes)
+```
+
+Se utilizó [g:Profiler](https://biit.cs.ut.ee/gprofiler/convert) para conseguir los datos de los genes con `NA`. En algunos casos la descripción del gen se observa como número, que corresponde a HGNC (Ejemplo: `WASP family homolog 7, pseudogene [Source:HGNC Symbol;Acc:HGNC:38034]` )
+
+```{r}
+na_idx <- which(is.na(annotation_na$SYMBOL)==TRUE)
+
+write.csv(annotation_na[na_idx,1], file="./results/anotaciones_con_na.csv")
+
+ids_na <- read.csv("./data/missing_data_for_annotation_na.csv",
+                  header = TRUE, sep = ",")
+
+levels <- levels(ids_na$description)
+
+ann <- annotation_na
+
+ann$SYMBOL[na_idx] <- as.character(ids_na$name)
+
+ann$GENENAME[na_idx] <- as.character(levels)
+```
+
+Se puede observar que ahora todos los datos cuentan con información asociada
+```{R}
+length(which(is.na(ann$ENSEMBL)==T))
+```
+
+Sin embargo, quedan 585 casos sin información
+```{R}
+length(which(ann$SYMBOL=="None"))
+```
+
+Se ajusta el p-valor por la tasa de descubrimiento falso:
+```{R}
+NITvsSFI$table$PValue <- p.adjust(NITvsSFI$table$PValue,"fdr")
+SFIvsELI$table$PValue <- p.adjust(SFIvsELI$table$PValue,"fdr")
+NITvsELI$table$PValue <- p.adjust(NITvsELI$table$PValue,"fdr")
+```
+
+```{R}
+res_ann_NITvsSFI <- cbind(NITvsSFI, ann)
+res_ann_SFIvsELI <- cbind(SFIvsELI, ann)
+res_ann_NITvsELI <- cbind(NITvsELI, ann)
+
+write.csv(res_ann_NITvsSFI, file="./results/res_ann_NITvsSFI.csv")
+write.csv(res_ann_SFIvsELI, file="./results/res_ann_SFIvsELI.csv")
+write.csv(res_ann_NITvsELI, file="./results/res_ann_NITvsELI.csv")
+```
+
+```{R}
+res_ann_NITvsSFI_ordered <- res_ann_NITvsSFI[order(res_ann_NITvsSFI$PValue),]
+res_ann_SFIvsELI_ordered <- res_ann_SFIvsELI[order(res_ann_SFIvsELI$PValue),]
+res_ann_NITvsELI_ordered <- res_ann_NITvsELI[order(res_ann_NITvsELI$PValue),]
+```
+
+```{R}
+head(res_ann_NITvsSFI_ordered)
+head(res_ann_SFIvsELI_ordered)
+head(res_ann_NITvsELI_ordered)
+```
+
+```{R}
+summary(de1 <- decideTestsDGE(NITvsSFI, adjust.method = "fdr"))
+summary(de2 <- decideTestsDGE(SFIvsELI, adjust.method = "fdr"))
+summary(de3 <- decideTestsDGE(NITvsELI, adjust.method = "fdr"))
+```
+
+```{R}
+# Different maps
+
+detags <- rownames(NITvsSFI)[as.logical(de1)]
+plotSmear(NITvsSFI, de.tags=detags)
+
+
+detags_2 <- rownames(SFIvsELI)[as.logical(de2)]
+plotSmear(SFIvsELI, de.tags=detags_2)
+
+
+detags_3 <- rownames(NITvsELI)[as.logical(de3)]
+plotSmear(NITvsELI, de.tags=detags_2)
+```
+
+```{R}
+detags <- rownames(NITvsSFI)[as.logical(de1)]
+signif <- -log10(res_ann_NITvsSFI$PValue)
+plot(res_ann_NITvsSFI$logFC, signif, pch=18, xlab= "logFC(NITvsSFI)")
+points(res_ann_NITvsSFI[detags,"logFC"],-log10(res_ann_NITvsSFI[detags,"PValue"]),pch=16,col="lightblue")
+abline(h=2, v=c(-1,1),col=2)
+
+detags <- rownames(SFIvsELI)[as.logical(de2)]
+signif <- -log10(res_ann_SFIvsELI$PValue)
+plot(res_ann_SFIvsELI$logFC, signif, pch=18, xlab= "logFC(NITvsSFI)")
+points(res_ann_SFIvsELI[detags,"logFC"],-log10(res_ann_SFIvsELI[detags,"PValue"]),pch=16,col="lightblue")
+abline(h=2, v=c(-1,1), col=2)
+
+detags <- rownames(SFIvsELI)[as.logical(de3)]
+signif <- -log10(res_ann_NITvsELI$PValue)
+plot(res_ann_NITvsELI$logFC, signif, pch=18, xlab= "logFC(NITvsELI)")
+points(res_ann_NITvsELI[detags,"logFC"],-log10(res_ann_NITvsELI[detags,"PValue"]),pch=16,col="lightblue")
+abline(h=2,v=c(-1,1), col=2)
+```
+
+
+```{R}
+length(de_g1)
+length(de_g2)
+length(de_g3)
+```
+
+# NEW APPROACH (check this up)
+```{R}
+# [enlace](http://www.nathalievialaneix.eu/doc/html/solution-edgeR-rnaseq.html)
+library(mixOmics)
+#dge <- DGEList()
+
+# raw_count_table is dg_list_2$counts
+
+
+pseudocounts  <- log2(dg_list_2$counts+1)
+dim(pseudocounts)
+```
+
+# Histograms
+```{r}
+ggplot(as.data.frame(pseudocounts), aes(x = pseudocounts[,1])) +
+       ylab(expression(log[2](as.data.frame(dg_list_2$counts)+1))) + 
+       geom_histogram(colour="white", fill="#525252", binwidth = 0.6) 
+```
+
+# Boxplots
+```{R}
+library(reshape)
+
+colnames(pseudocounts) <- c(paste(dg_list_2$samples$group.1, c(rep(1:10, 3)),sep=""))
+#colnames(pseudocounts) <- c(paste(dg_list_2$samples$group.1))
+
+df = melt(pseudocounts)
+
+colnames(df) <- c("gene", "infiltrates", "value")
+
+df = data.frame(df, condition = substr(df$infiltrates, 1, 30))
+
+#ggplot(df, aes(x = "infiltrates", y = value, fill = condition)) + geom_boxplot() 
+#      +xlab("")+ylab(expression(log[2](count + 1))) 
+#      +scale_fill_manual(values = c("#619CFF", "#F564E3","#42af4b"))
+```
+# Histograms and density plots
+```{R}
+#ggplot(df, aes(x = value, colour = "infiltrates", fill = "infiltrates")) + ylim(c(0,0.25))+
+#       geom_density(alpha=0.2, size=1.25)+facet_wrap(~ condition)+ 
+#       theme(legend.position = "top") + xlab(expression(log[2](count+1)))
+
+
+```
+
+# MA plot
+```{R}
+x = pseudocounts[,1]
+y = pseudocounts[,21]
+
+# M-values
+M = x - y
+
+# A-values
+A = (x+y)/2
+
+df_ma = data.frame(A, M)
+
+ggplot(df_ma, aes(x = A, y = M)) + geom_point(size = 1.5, alpha = 1/5) +
+geom_hline(color = "blue3", yintercept = 0) + stat_smooth(se = FALSE, method = "loess", color = "red3")
+
+# se hacen comparaciones de NIT vs ELi, pq NIT y SFI no tuvieron diferencias
+# existen 190 posibles combinaciones, se escogerán 3 al azar:
+
+idx_nit <- sample(1:10, 3)
+idx_eli <- sample(20:30, 3)
+
+x = pseudocounts[,idx_nit[1]]
+y = pseudocounts[,idx_eli[1]]
+
+# M-values
+M = x - y
+
+# A-values
+A = (x+y)/2
+
+df_ma = data.frame(A, M)
+
+ggplot(df_ma, aes(x = A, y = M)) + geom_point(size = 1.5, alpha = 1/5) +
+geom_hline(color = "blue3", yintercept = 0) + stat_smooth(se = FALSE, method = "loess", color = "red3")
+
+x = pseudocounts[,idx_nit[2]]
+y = pseudocounts[,idx_eli[2]]
+
+# M-values
+M = x - y
+
+# A-values
+A = (x+y)/2
+
+df_ma = data.frame(A, M)
+
+ggplot(df_ma, aes(x = A, y = M)) + geom_point(size = 1.5, alpha = 1/5) +
+geom_hline(color = "blue3", yintercept = 0) + stat_smooth(se = FALSE, method = "loess", color = "red3")
+
+x = pseudocounts[,idx_nit[3]]
+y = pseudocounts[,idx_eli[3]]
+
+# M-values
+M = x - y
+
+# A-values
+A = (x+y)/2
+
+df_ma = data.frame(A, M)
+
+ggplot(df_ma, aes(x = A, y = M)) + geom_point(size = 1.5, alpha = 1/5) +
+geom_hline(color = "blue3", yintercept = 0) + stat_smooth(se = FALSE, method = "loess", color = "red3")
+```
+
+```{r}
+m_NIT <- melt(pseudocounts[,1:10])
+m_SFI <- melt(pseudocounts[,11:20])
+m_ELI <- melt(pseudocounts[,21:30])
+```
+
+```{r}
+x = m_NIT$value
+y = m_SFI$value
+
+# M-values
+M = x - y
+
+# A-values
+A = (x+y)/2
+
+df_ma = data.frame(A, M)
+
+ggplot(df_ma, aes(x = A, y = M)) + geom_point(size = 1.5, alpha = 1/5) +
+geom_hline(color = "blue3", yintercept = 0) + stat_smooth(se = FALSE, method = "loess", color = "red3")
+```
+
+```{r}
+x = m_NIT$value
+y = m_ELI$value
+
+# M-values
+M = x - y
+
+# A-values
+A = (x+y)/2
+
+df_ma = data.frame(A, M)
+
+ggplot(df_ma, aes(x = A, y = M)) + geom_point(size = 1.5, alpha = 1/5) +
+geom_hline(color = "blue3", yintercept = 0) + stat_smooth(se = FALSE, method = "loess", color = "red3")
+```
+
+```{r}
+x = m_SFI$value
+y = m_ELI$value
+
+# M-values
+M = x - y
+
+# A-values
+A = (x+y)/2
+
+df_ma = data.frame(A, M)
+
+ggplot(df_ma, aes(x = A, y = M)) + geom_point(size = 1.5, alpha = 1/5) +
+geom_hline(color = "blue3", yintercept = 0) + stat_smooth(se = FALSE, method = "loess", color = "red3")
+```
+
+```{R}
+par(mar=c(6,2,1,1))
+
+# long names
+#colnames(pseudocounts) <- colnames(dg_list_2$counts)
+
+# short names
+colnames(pseudocounts) <- as.character(dg_list_2$samples$short_name)
+
+boxplot(pseudocounts, las=2, col=(c(rep("lightblue",10),rep("blue",10),rep("navyblue",10))), main="Figura .")
+```
+
+```{R fig.height=20, fig.width=20}
+plotMDS(pseudocounts, pch=c(1:6,15,17,18,19), col=c(rep("red",10), rep("blue",10), rep("green",10)), cex=2, main="Figura 2. Gráfico de escalamiento multidimensional de distancias entre perfiles de expresión génica", xlim=c(-5,5), ylim=c(-2,2))
+legend(-5.36, 2.15, legend=count_colnames, pch = c(1:6,15,17,18,19), col=c(rep("red",10), rep("blue",10), rep("green",10)) )
+```
+
+# Heatmap
+```{R}
+library(RColorBrewer)
+mat_dist <- pseudocounts
+
+group <- c(rep("NIT",10),rep("SFI",10),rep("ELI",10))
+
+colnames(mat_dist) = paste(as.character(dg_list_2$samples$short_name), group, sep= " : ")
+
+mat_dist <- as.matrix(dist(t(mat_dist)))
+
+mat_dist <- mat_dist/max(mat_dist)
+
+hmcol <- colorRampPalette(brewer.pal(9, "GnBu"))(16)
+
+cim(mat_dist, color = sort(hmcol, decreasing=T), symkey = FALSE, margins = c(7, 7))
+```
+
+# Principal components (NO VA AL INFORME FINAL)
+```{R}
+library(matrixStats)
+
+rv <- rowVars(pseudocounts)
+
+ntop <- 30
+
+select <- order(rv, decreasing = TRUE)[1:ntop]
+
+pca <- prcomp(t(pseudocounts[select, ]))
+```
+
+```{R}
+library(affy)
+# short names of the genes in the selected dataframe
+short_names <- as.character(dg_list_2$samples$short_name)
+gene_names <- rownames(dg_list_2$counts)
+
+colnames(pseudocounts) <- short_names
+
+# in the example:
+# condition = control or treated
+# libType = paired or single end
+
+annot = AnnotatedDataFrame(data = 
+                           data.frame(group, short_names,
+                                     row.names = colnames(pseudocounts)))
+
+exp_set = new("ExpressionSet", exprs = as.matrix(pseudocounts), phenoData = annot)
+
+#plotPCA(exp_set, intgroup = c("group")) 
+#~p20 Statistical analysis of RNA-seq data
+```
+
+# Inference: calling differential expression
+
+```{R}
+#***
+# DESeq2 analysis example ~p59 Statistical analysis of RNA-seq data
+```
+
+# Artículo: 
+[From reads to genes to pathways](https://www.bioconductor.org/packages/devel/workflows/vignettes/RnaSeqGeneEdgeRQL/inst/doc/edgeRQL.html#testing-for-differential-expression)
+
+```{R}
+# Mean difference plot
+plotMD(NITvsSFI, status=de1)
+plotMD(NITvsELI, status=de2)
+plotMD(SFIvsELI, status=de3)
+```
+
+# Differential expression above a fold-change threshold
+```{R echo=FALSE}
+# Expresión diferencial por encima de un umbral
+# y es dg_list_2
+set.seed(123)
+```
+
+```{R}
+# NITvsSFI
+
+# Se anotaron los SYMBOL de los genes que salen como "none"
+# se hizo ann$SYMBOL[o[n]] para cada n que fuese igual a none
+
+
+
+logCPM <- cpm(dg_list_2, prior.count=2, log=T)
+
+rownames(logCPM) <- ann$SYMBOL
+
+colnames(logCPM) <- as.character(dg_list_2$samples$short_name)
+
+o <- order(res_ann_NITvsSFI$PValue)
+
+logCPM <- logCPM[o[1:30],]
+
+coolmap(logCPM, margins=c(7,7), lhei=c(1,6), lwid=c(1,3))
+```
+
+```{R}
+# SFIvsELI
+
+logCPM <- cpm(dg_list_2, prior.count=2, log=T)
+
+rownames(logCPM) <- ann$SYMBOL
+colnames(logCPM) <- as.character(dg_list_2$samples$short_name)
+
+o <- order(res_ann_SFIvsELI$PValue)
+
+logCPM <- logCPM[o[1:30],]
+
+coolmap(logCPM, margins=c(7,7), lhei=c(1,6), lwid=c(1,3))
+```
+
+```{r}
+# NITvsELI
+
+logCPM <- cpm(dg_list_2, prior.count=2, log=T)
+
+rownames(logCPM) <- ann$SYMBOL
+colnames(logCPM) <- as.character(dg_list_2$samples$short_name)
+
+o <- order(res_ann_NITvsELI$PValue)
+
+logCPM <- logCPM[o[1:30],]
+
+coolmap(logCPM, margins=c(7,7), lhei=c(1,6), lwid=c(1,3))
+```
+
+
+
+```{R}
+# NITvsSFI
+logCPM <- cpm(dg_list_2, prior.count=2, log=T)
+
+rownames(logCPM) <- ann$SYMBOL
+colnames(logCPM) <- as.character(dg_list_2$samples$short_name)
+
+o <- order(res_ann_NITvsSFI$PValue)
+
+logCPM <- logCPM[o[1:200],]
+
+coolmap(logCPM, margins=c(7,7), lhei=c(1,6), lwid=c(1,3))
+
+# SFIvsELI
+logCPM <- cpm(dg_list_2, prior.count=2, log=T)
+
+rownames(logCPM) <- ann$SYMBOL # quita los nombres c(rep("", 19457))
+colnames(logCPM) <- as.character(dg_list_2$samples$short_name)
+
+o <- order(res_ann_SFIvsELI$PValue)
+
+logCPM <- logCPM[o[1:200],]
+
+coolmap(logCPM, margins=c(7,7), lhei=c(1,6), lwid=c(1,3))
+
+# NITvsELI
+logCPM <- cpm(dg_list_2, prior.count=2, log=T)
+
+rownames(logCPM) <- ann$SYMBOL # c(rep("", 19457))
+colnames(logCPM) <- as.character(dg_list_2$samples$short_name)
+
+o <- order(res_ann_NITvsELI$PValue)
+
+logCPM <- logCPM[o[1:200],]
+
+coolmap(logCPM, margins=c(7,7), lhei=c(1,6), lwid=c(1,3))
+
+```
+
+```{R}
+
+```
+
+```{R}
+
+```
+
+```{R}
+
+```
+
+```{R}
+
+```
+
+```{R}
+
+```
+
+```{R}
+
+```
+
+```{R}
+
+```
+
+```{R}
+
+```
+
+```{R}
+
+```
+
+```{R}
+
+```
+
+```{R}
+
+```
+
+```{R}
+
+```
+
+```{R}
+
+```
+
+```{R}
+
+```
+
+```{R}
+
+```
+
+```{R}
+
+```
+
+```{R}
+
+```
+
+# Referencias Bibliográficas

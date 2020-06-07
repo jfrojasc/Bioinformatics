@@ -1,0 +1,308 @@
+---
+title: "Cáncer de mama"
+author: "José Félix Rojas Cabeza"
+subtitle: "Implementación de diferentes algoritmos de machine learning para diagnóstico"
+date: "`r format(Sys.time(), '%d de %B de %Y')`"
+output: 
+  html_document:
+    code_folding: show
+    theme: cerulean
+    toc: yes
+    toc_float: yes
+  word_document:
+    toc: yes
+  pdf_document:
+    toc: yes
+params:
+  data: "./Data/BreastCancer1.csv"
+  ptrain: 0.6666667
+  seed_train: 12345
+  seed_alg: 1234567
+  bibliography: referencias.bib
+---
+```{r setup, include=FALSE}
+require(knitr)
+# include this code chunk as-is to set options
+opts_chunk$set(comment = NA, prompt = TRUE, tidy = FALSE, 
+               fig.width = 7, fig.height = 7,echo = TRUE,
+               fig.align='center',
+               message = FALSE, warning = FALSE, cache=TRUE)
+Sys.setlocale("LC_TIME", "C")
+```
+
+```{r, echo=FALSE}
+#if(!(require(NAME))) install.packages("NAME")
+```
+
+# 1. Algoritmo *k*NN
+
+## 1.1 Colección de datos
+```{r}
+bc_full <- read.csv(params$data, stringsAsFactors = FALSE)
+dim(bc_full)
+head(bc_full[1:4])
+```
+
+## 1.2 Exploración y preparación de datos
+
+```{r}
+bc <- bc_full[,-1]
+str(bc)
+```
+
+```{r echo=FALSE}
+dim <- dim(bc)
+num_train <- round((dim[1]*params$ptrain),0)
+num_test <- dim[1] - num_train
+```
+
+```{r}
+# Benign / Malignant
+table(bc$diagnosis)
+bc$diagnosis <- factor(bc$diagnosis, levels= c("B", "M"), labels=c("Benign", "Malignant"))
+```
+
+```{r}
+par(mar=c(11,4,1,1))
+
+means <- as.numeric((lapply(bc, mean)))
+
+boxplot(bc[1:30], las=2, col="lightblue", 
+        main="Figura 1. distribución de las variables del dataset")
+abline(h=mean(means), col="red")
+```
+
+```{r}
+# esta función se probó y no da mejores resultados que los datos sin reescalar
+# considerando el error de falsos negativos, el más serio en casos clínicos
+
+#normalize <- function(x) {
+#return ((x - min(x)) / (max(x) - min(x)))
+#}
+
+#bc_n <- as.data.frame(lapply(bc[1:(round(dim[2],0)-1)], normalize))
+
+bc_z <- as.data.frame(scale(bc[1:(round(dim[2],0)-1)]))
+```
+
+```{r}
+par(mar=c(11,3,1,1))
+
+means_z <- as.numeric((lapply(bc_z, mean)))
+
+boxplot(bc_z[1:30], las=2, col="lightblue", main="Figura 2. distribución de las variables del dataset normalizadas")
+abline(h=mean(means_z), col="red")
+```
+Considerando que la distribución de los datos es muy distinta luego de la normalización, se pueden comparar los resultados de los datos sin modificar y transformados.
+
+## 1.3 Creación de datasets de entrenamiento y prueba
+
+```{r}
+set.seed(params$seed_train)
+train <- sample(dim[1], num_train)
+train_z <- sample(dim[1], num_train)
+
+
+bc_train <- bc[train,-31]
+bc_test <- bc[-train,-31]
+  
+bc_train_z <- bc_z[train_z, ]
+bc_test_z <- bc_z[-train_z, ]
+
+dim(bc_train)
+dim(bc_test)
+
+dim(bc_train_z)
+dim(bc_test_z)
+
+# bc$diagnosis
+bc_train_labels <- bc[train,31]
+bc_test_labels <- bc[-train,31]
+length(bc_train_labels)
+length(bc_test_labels)
+
+str(bc_test_labels)
+```
+## 1.4 Entrenamiento del modelo *k*NN en los datos
+
+Considerando que la recomendación de la literatura [@lantz2013machine] es $\sqrt n$, y que en este caso $\sqrt n =$ `r round(sqrt(dim[1]), 0)`, se toman el doble de casos para escoger el de mejor desempeño.
+```{r echo=TRUE, include=FALSE}
+library(class)
+set.seed(params$seed_alg)
+# 1 caso 
+# bc_test_pred_21 <- knn(train = bc_train, test = bc_test, 
+#                        cl = bc_train_labels, k = 21)
+
+# 42 casos
+bc_test_pred <- list()
+
+for(i in 1:42){
+  bc_test_pred[[i]] <- knn(train = bc_train, test = bc_test, cl = bc_train_labels, k = i)
+}
+```
+
+```{r echo=TRUE, include=FALSE}
+# CMs
+library(gmodels)
+CMs <- list()
+
+for(i in 1:42){
+  CMs[[i]] <- CrossTable(x = bc_test_labels, y = bc_test_pred[[i]], prop.chisq=F)
+}
+
+## 42 casos
+#bc_test_pred_z <- list()
+
+#for(i in 1:42){
+#  bc_test_pred_z[[i]] <- knn(train = bc_train_z, test = bc_test_z, cl = bc_train_labels, k = i)
+#}
+
+# CMs
+#library(gmodels)
+#CMs_z <- list()
+#
+#for(i in 1:42){
+#  CMs_z[[i]] <- CrossTable(x = bc_test_labels, y = bc_test_pred_z[[i]], prop.chisq=F)
+#}
+
+```
+
+```{r}
+#CMs[[i]]$t
+#CMs[[i]]$t[1]
+#CMs[[i]]$t[2]
+#CMs[[i]]$t[3]
+#CMs[[i]]$t[4]
+
+#Observed agreement = (A+D) 
+
+#(CMs[[i]]$t[1]+CMs[[i]]$t[4])
+
+#Expected agreement = (((A+B)*(A+C))+((C+D)*(B+D)))/(A+B+C+D)
+  
+#(((CMs[[i]]$t[1]+CMs[[i]]$t[3])*(CMs[[i]]$t[1]+CMs[[i]]$t[2]))+((CMs[[i]]$t[2]+CMs[[i]]$t[4])*(CMs[[i]]$t[3]+CMs[[i]]$t[4])))/(CMs[[i]]$t[1]+CMs[[i]]$t[3]+CMs[[i]]$t[2]+CMs[[i]]$t[4])
+
+# Kappa = ((Observed agreement) – (Expected agreement))/((A+B+C+D) – (Expected agreement))
+
+#( (CMs[[i]]$t[1]+CMs[[i]]$t[4]) - ( (((CMs[[i]]$t[1]+CMs[[i]]$t[3])*(CMs[[i]]$t[1]+CMs[[i]]$t[2]))+((CMs[[i]]$t[2]+CMs[[i]]$t[4])*(CMs[[i]]$t[3]+CMs[[i]]$t[4])))/(CMs[[i]]$t[1]+CMs[[i]]$t[3]+CMs[[i]]$t[2]+CMs[[i]]$t[4])) ) / ( (CMs[[i]]$t[1]+CMs[[i]]$t[2]+CMs[[i]]$t[3]+CMs[[i]]$t[4])-(((CMs[[i]]$t[1]+CMs[[i]]$t[3])*(CMs[[i]]$t[1]+CMs[[i]]$t[2]))+((CMs[[i]]$t[2]+CMs[[i]]$t[4])*(CMs[[i]]$t[3]+CMs[[i]]$t[4])))/(CMs[[i]]$t[1]+CMs[[i]]$t[3]+CMs[[i]]$t[2]+CMs[[i]]$t[4])  )
+```
+
+```{r}
+k <- c(1:42)
+
+# fn - false negatives
+fn <- c()
+for(i in 1:42){
+  fn[i] <- CMs[[i]]$t[2]
+}
+
+# fp - false positives
+fp <- c()
+for(i in 1:42){
+  fp[i] <- CMs[[i]]$t[3]
+}
+
+#icp - incorrectly classified percentage = error
+icp <- c()
+for(i in 1:42){
+  icp[i] <- (CMs[[i]]$t[2]+CMs[[i]]$t[3])/num_test
+}
+
+# accuracy
+acc <- c()
+for(i in 1:42){
+  acc[i] <- (CMs[[i]]$t[1]+CMs[[i]]$t[4])/num_test
+}
+
+kappa <- c()
+for (i in 1:42){
+  kappa[i] <- (  
+    (   (CMs[[i]]$t[1]+CMs[[i]]$t[4]) - 
+    ( (((CMs[[i]]$t[1]+CMs[[i]]$t[3])*
+        (CMs[[i]]$t[1]+CMs[[i]]$t[2]))+
+       ((CMs[[i]]$t[2]+CMs[[i]]$t[4])*
+        (CMs[[i]]$t[3]+CMs[[i]]$t[4])))/
+        (CMs[[i]]$t[1]+CMs[[i]]$t[3]+
+         CMs[[i]]$t[2]+CMs[[i]]$t[4]) ) ) / 
+      ( (CMs[[i]]$t[1]+CMs[[i]]$t[2]+
+         CMs[[i]]$t[3]+CMs[[i]]$t[4]) - 
+      (((CMs[[i]]$t[1]+CMs[[i]]$t[3])*
+        (CMs[[i]]$t[1]+CMs[[i]]$t[2]))+
+       ((CMs[[i]]$t[2]+CMs[[i]]$t[4])*
+        (CMs[[i]]$t[3]+CMs[[i]]$t[4])))/
+        (CMs[[i]]$t[1]+CMs[[i]]$t[3]+
+         CMs[[i]]$t[2]+CMs[[i]]$t[4])  )
+    )
+}
+
+icp <- round(icp, 5)
+acc <- round(acc, 5)
+kappa <- round(kappa, 5)
+
+tabla_0 <- cbind(k, fn, fp, icp, acc, kappa)
+tabla_1 <- cbind(k, fn, fp, icp, acc, kappa)
+
+tabla_1 <- tabla_1[order(tabla_1[,5], decreasing=T),]
+
+kable(tabla_1, col.names = c("valor k", "Falsos negativos", "Falsos positivos", 
+                             "Error", "Exactitud", "Kappa"), 
+      align = c("l", "l", "l","l"), caption = "Tabla 1. Desempeño del algoritmo kNN")
+```
+
+```{r}
+which(tabla_0[,5]==max(tabla_1[,5]))
+n_pos <- CMs[[which(tabla_0[,5]==max(tabla_1[,5]))]]$t[1]
+n_neg <- CMs[[which(tabla_0[,5]==max(tabla_1[,5]))]]$t[4]
+n_fp <- CMs[[which(tabla_0[,5]==max(tabla_1[,5]))]]$t[3]
+n_fn <- CMs[[which(tabla_0[,5]==max(tabla_1[,5]))]]$t[2]
+```
+
+Los porcentajes de las celdas en la tabla indican la proporción de valores, que se dividen en cuatro categorías. La celda superior izquierda indica los resultados **negativos reales**. Estos `r n_pos` de `r num_test` valores son casos en los que la masa era benigna y el algoritmo k-NN la identificaba correctamente como tal. La celda inferior derecha indica los resultados **positivos reales**, donde el clasificador y la etiqueta clínicamente determinada coinciden en que la masa es maligna. Un total de `r n_neg` de `r num_test` predicciones fueron verdaderos positivos.
+
+Las celdas que caen en la otra diagonal contienen recuentos de ejemplos en los que el enfoque k-NN no está de acuerdo con la etiqueta verdadera (Error tipo I). Los dos ejemplos en la celda inferior izquierda son **falsos negativos**; En este caso, el valor predicho era benigno, pero el tumor era realmente maligno (Error tipo II). Los errores en esta dirección podrían ser extremadamente costosos, ya que podrían hacer que un paciente crea que no tiene cáncer, pero en realidad, la enfermedad puede continuar propagándose. La celda superior derecha contendría los **falsos positivos** (Error tipo I), si los hubiera. Estos valores se producen cuando el modelo clasifica una masa como maligna, pero en realidad era benigna. Aunque tales errores son menos peligrosos que un resultado falso negativo, también deben evitarse ya que podrían generar una carga financiera adicional en el sistema de atención médica o estrés adicional para el paciente, ya que es posible que se deban realizar pruebas o tratamientos adicionales.
+
+Un total de `r n_fn` de cada `r num_test`, o el `r (CMs[[which(tabla_0[,5]==max(tabla_1[,5]))]]$t[2]/num_test)*100` por ciento de las masas fueron clasificadas incorrectamente por el enfoque k-NN. Si bien la precisión del `r 100-(r CMs[[which(tabla_0[,5]==max(tabla_1[,5]))]]$t[2]/num_test)` por ciento parece impresionante para algunas líneas de código R, se puede intentar otra iteración del modelo para ver si podemos mejorar el rendimiento y reducir la cantidad de valores que se han clasificado incorrectamente, particularmente porque los errores falsos negativos, son peligrosos.
+
+```{r}
+library(caret)
+set.seed(params$seed_alg)
+ctrl <- trainControl(method="repeatedcv",repeats = 5) 
+knn_fit <- train(diagnosis ~ ., data = bc, method = "knn", trControl = ctrl, preProcess = c("center","scale"), tuneLength = 20)
+
+```
+
+# Caret
+
+```{r}
+knn_fit
+```
+
+# 2. Algoritmo Naive Bayes
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+```{r}
+
+```

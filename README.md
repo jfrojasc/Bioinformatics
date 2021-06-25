@@ -1,7 +1,8 @@
-# UOC
-Asignaciones de la UOC en el Master de Bioestadística y Bioinformática
+# Bioinformatics
 
-Cuatrimestre 1:
+Homework from the OUC in the Master of Bioinformatics and Biostatistics
+
+1 St Semester:
 
 M0.151 - HPIB 
 
@@ -9,7 +10,7 @@ M0.153 - SAD
 
 M0.155 - IE
 
-Cuatrimestre 2:
+2 nd Semester:
 
 M0.152 - PPB (Python) 
 
@@ -17,7 +18,7 @@ M0.154 - GC
 
 M0.156 - RMM
 
-Cuatrimestre 3:
+3 rd  Semester:
 
 M0.157 - ADO
 
@@ -25,10 +26,7 @@ M0.163 - ML
 
 M0.165 - AM
 
-Cuatrimestre 4:
+4 th Semester:
 
 M0.167 - TFM
 
-
-
-Esto es un cambio

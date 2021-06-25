@@ -1,4 +1,4 @@
-# Bioinformatics
+# Bioinformatics Master
 
 Homework from the OUC in the Master of Bioinformatics and Biostatistics
 

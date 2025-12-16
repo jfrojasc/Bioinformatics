@@ -1,6 +1,6 @@
 # Bioinformatics Master
 
-Homework from the OUC in the Master of Bioinformatics and Biostatistics
+Homework from the Open University of Catalonia in the Master of Bioinformatics and Biostatistics (Graduated 2021)
 
 1 St Semester:
 
